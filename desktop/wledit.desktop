@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=WLEditor
+GenericName=WordstarLike Editor
+Comment=Text editor with WordStar like key bindings
+Exec=wledit %F
+Icon=wledit
+Terminal=false
+Type=Application
+Categories=Office;TextEditor;Development;
+MimeType=text/plain;text/x-csrc;text/x-c++src;text/x-chdr;text/x-c++hdr;text/x-python;text/x-java;text/x-javascript;text/markdown;
+StartupNotify=true
+Keywords=text;editor;wordstar;programming;diamond;navigation;

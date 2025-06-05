@@ -1,0 +1,51 @@
+# Build directories
+build/
+build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Qt specific
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+moc_*.cpp
+moc_*.h
+qrc_*.cpp
+ui_*.h
+*.moc
+*_autogen/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Binary files
+wledit
+wordstar-editor
+*.exe
+*.app
+*.apk
+
+# Qt build artifacts
+*.o
+*.obj
+*.res
+*.rc
+.qmake.stash
+
+# Backup files
+*.bak
+
+# Script files that might contain local paths
+makescript.sh
