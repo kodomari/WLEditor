@@ -29,6 +29,10 @@
 #include <QKeyEvent>
 #include <QTimer>
 #include <QPaintEvent>
+#include <QPaintEvent>
+#include <QToolBar>        // 新しく追加
+#include <QGroupBox>       // 新しく追加
+#include <QWidget>         // 新しく追加
 
 class FindReplaceDialog;
 
@@ -97,6 +101,9 @@ private slots:
     void updateStatusBar();
     void documentModified();
     void onWrapWidthChanged(int value);
+    void toggleToolBar();
+    void toggleStatusBarExtras();
+    void showPreferences();
 
 private:
     void setupMenus();
@@ -133,6 +140,19 @@ private:
     QAction *findReplaceAction;
     
     FindReplaceDialog *findDialog;
+        // 新しく追加するメンバー
+    QAction *toggleToolBarAction;
+    QAction *toggleStatusExtrasAction;
+    QAction *preferencesAction;
+    
+    // 設定用メンバー
+    bool toolBarVisible;
+    bool statusExtrasVisible;
+    
+    // UI要素の参照
+    QToolBar *mainToolBar;
+    QWidget *statusExtrasWidget;
+    
 };
 
 // 検索・置換ダイアログ

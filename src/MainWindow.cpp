@@ -405,6 +405,8 @@ MainWindow::MainWindow(QWidget *parent)
     , textEditor(new CustomTextEdit(this))
     , settings(new QSettings(this))
     , findDialog(nullptr)
+    , toolBarVisible(true)           // 新しく追加
+    , statusExtrasVisible(true)      // 新しく追加
 {
     setCentralWidget(textEditor);
     
@@ -529,7 +531,7 @@ void MainWindow::setupMenus()
     connect(findReplaceAction, &QAction::triggered, this, &MainWindow::findReplace);
     editMenu->addAction(findReplaceAction);
     
-    // 表示メニュー
+// 表示メニュー
     QMenu *viewMenu = menuBar()->addMenu("&View");
     
     QAction *fontAction = new QAction("&Font...", this);
@@ -541,32 +543,65 @@ void MainWindow::setupMenus()
     wrapAction->setStatusTip("Set text wrap width");
     connect(wrapAction, &QAction::triggered, this, &MainWindow::setWrapWidth);
     viewMenu->addAction(wrapAction);
+    
+    viewMenu->addSeparator();
+    
+    // 新しく追加：UI要素の表示/非表示
+    toggleToolBarAction = new QAction("&Tool Bar", this);
+    toggleToolBarAction->setCheckable(true);
+    toggleToolBarAction->setChecked(true);
+    toggleToolBarAction->setStatusTip("Show/hide tool bar");
+    connect(toggleToolBarAction, &QAction::triggered, this, &MainWindow::toggleToolBar);
+    viewMenu->addAction(toggleToolBarAction);
+    
+    toggleStatusExtrasAction = new QAction("&Status Bar Details", this);
+    toggleStatusExtrasAction->setCheckable(true);
+    toggleStatusExtrasAction->setChecked(true);
+    toggleStatusExtrasAction->setStatusTip("Show/hide font and wrap info in status bar");
+    connect(toggleStatusExtrasAction, &QAction::triggered, this, &MainWindow::toggleStatusBarExtras);
+    viewMenu->addAction(toggleStatusExtrasAction);
+    
+    viewMenu->addSeparator();
+    
+    // 設定メニュー
+    preferencesAction = new QAction("&Preferences...", this);
+    preferencesAction->setStatusTip("Configure application settings");
+    connect(preferencesAction, &QAction::triggered, this, &MainWindow::showPreferences);
+    viewMenu->addAction(preferencesAction);
 }
 
 void MainWindow::setupToolBar()
 {
-    QToolBar *toolBar = addToolBar("Main");
-    toolBar->addAction(newAction);
-    toolBar->addAction(openAction);
-    toolBar->addAction(saveAction);
-    toolBar->addSeparator();
-    toolBar->addAction(cutAction);
-    toolBar->addAction(copyAction);
-    toolBar->addAction(pasteAction);
-    toolBar->addSeparator();
-    toolBar->addAction(undoAction);
-    toolBar->addAction(redoAction);
-    toolBar->addSeparator();
-    toolBar->addAction(findReplaceAction);
+    mainToolBar = addToolBar("Main");
+    mainToolBar->addAction(newAction);
+    mainToolBar->addAction(openAction);
+    mainToolBar->addAction(saveAction);
+    mainToolBar->addSeparator();
+    mainToolBar->addAction(cutAction);
+    mainToolBar->addAction(copyAction);
+    mainToolBar->addAction(pasteAction);
+    mainToolBar->addSeparator();
+    mainToolBar->addAction(undoAction);
+    mainToolBar->addAction(redoAction);
+    mainToolBar->addSeparator();
+    mainToolBar->addAction(findReplaceAction);
+    
+    // オブジェクト名を設定（設定保存用）
+    mainToolBar->setObjectName("MainToolBar");
 }
 
 void MainWindow::setupStatusBar()
 {
-    statusLabel = new QLabel("Ready - WordStar Keys Enabled");
+    statusLabel = new QLabel("Ready - WordStar like Keys Enabled");
     statusBar()->addWidget(statusLabel);
     
+    // ステータスバーの詳細情報をまとめるウィジェット
+    statusExtrasWidget = new QWidget();
+    QHBoxLayout *extrasLayout = new QHBoxLayout(statusExtrasWidget);
+    extrasLayout->setContentsMargins(0, 0, 0, 0);
+    
     // 折り返し幅設定
-    statusBar()->addPermanentWidget(new QLabel("Wrap:"));
+    extrasLayout->addWidget(new QLabel("Wrap:"));
     wrapWidthSpinBox = new QSpinBox();
     wrapWidthSpinBox->setRange(0, 200);
     wrapWidthSpinBox->setValue(80);
@@ -575,10 +610,10 @@ void MainWindow::setupStatusBar()
     wrapWidthSpinBox->setToolTip("Set line wrap (0=no wrap)");
     connect(wrapWidthSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &MainWindow::onWrapWidthChanged);
-    statusBar()->addPermanentWidget(wrapWidthSpinBox);
+    extrasLayout->addWidget(wrapWidthSpinBox);
     
     // フォント設定
-    statusBar()->addPermanentWidget(new QLabel("Font:"));
+    extrasLayout->addWidget(new QLabel("Font:"));
     fontComboBox = new QFontComboBox();
     fontComboBox->setMaximumWidth(150);
     fontComboBox->setToolTip("Select font family");
@@ -588,7 +623,7 @@ void MainWindow::setupStatusBar()
                 newFont.setPointSize(fontSizeSpinBox->value());
                 textEditor->setFont(newFont);
             });
-    statusBar()->addPermanentWidget(fontComboBox);
+    extrasLayout->addWidget(fontComboBox);
     
     fontSizeSpinBox = new QSpinBox();
     fontSizeSpinBox->setRange(8, 48);
@@ -601,7 +636,9 @@ void MainWindow::setupStatusBar()
                 font.setPointSize(size);
                 textEditor->setFont(font);
             });
-    statusBar()->addPermanentWidget(fontSizeSpinBox);
+    extrasLayout->addWidget(fontSizeSpinBox);
+    
+    statusBar()->addPermanentWidget(statusExtrasWidget);
     
     positionLabel = new QLabel("Line: 1, Col: 1");
     statusBar()->addPermanentWidget(positionLabel);
@@ -831,10 +868,20 @@ void MainWindow::loadSettings()
     fontComboBox->setCurrentFont(font);
     fontSizeSpinBox->setValue(font.pointSize());
     
-    // 折り返し幅を復元
+// 折り返し幅を復元
     int wrapWidth = settings->value("wrapWidth", 80).toInt();
     wrapWidthSpinBox->setValue(wrapWidth);
     textEditor->setWrapWidth(wrapWidth);
+    
+    // UI表示設定を復元
+    toolBarVisible = settings->value("toolBarVisible", true).toBool();
+    statusExtrasVisible = settings->value("statusExtrasVisible", true).toBool();
+    
+    mainToolBar->setVisible(toolBarVisible);
+    statusExtrasWidget->setVisible(statusExtrasVisible);
+    
+    toggleToolBarAction->setChecked(toolBarVisible);
+    toggleStatusExtrasAction->setChecked(statusExtrasVisible);
 }
 
 void MainWindow::saveSettings()
@@ -842,6 +889,8 @@ void MainWindow::saveSettings()
     settings->setValue("geometry", saveGeometry());
     settings->setValue("font", textEditor->font());
     settings->setValue("wrapWidth", wrapWidthSpinBox->value());
+    settings->setValue("toolBarVisible", toolBarVisible);
+    settings->setValue("statusExtrasVisible", statusExtrasVisible);
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
@@ -987,4 +1036,79 @@ void FindReplaceDialog::replaceAll()
     
     QMessageBox::information(this, "Replace All", 
         QString("Replaced %1 occurrences").arg(replacements));
+}
+
+// 新しく追加するスロット関数
+void MainWindow::toggleToolBar()
+{
+    toolBarVisible = !toolBarVisible;
+    mainToolBar->setVisible(toolBarVisible);
+    toggleToolBarAction->setChecked(toolBarVisible);
+    
+    // 設定を保存
+    settings->setValue("toolBarVisible", toolBarVisible);
+}
+
+void MainWindow::toggleStatusBarExtras()
+{
+    statusExtrasVisible = !statusExtrasVisible;
+    statusExtrasWidget->setVisible(statusExtrasVisible);
+    toggleStatusExtrasAction->setChecked(statusExtrasVisible);
+    
+    // 設定を保存
+    settings->setValue("statusExtrasVisible", statusExtrasVisible);
+}
+
+void MainWindow::showPreferences()
+{
+    // 簡単な設定ダイアログ
+    QDialog *prefDialog = new QDialog(this);
+    prefDialog->setWindowTitle("Preferences");
+    prefDialog->setModal(true);
+    prefDialog->resize(400, 300);
+    
+    QVBoxLayout *layout = new QVBoxLayout(prefDialog);
+    
+    // UI表示設定グループ
+    QGroupBox *uiGroup = new QGroupBox("Interface", prefDialog);
+    QVBoxLayout *uiLayout = new QVBoxLayout(uiGroup);
+    
+    QCheckBox *toolBarCheck = new QCheckBox("Show Tool Bar", uiGroup);
+    toolBarCheck->setChecked(toolBarVisible);
+    connect(toolBarCheck, &QCheckBox::toggled, [this](bool checked) {
+        toolBarVisible = checked;
+        mainToolBar->setVisible(checked);
+        toggleToolBarAction->setChecked(checked);
+        settings->setValue("toolBarVisible", checked);
+    });
+    uiLayout->addWidget(toolBarCheck);
+    
+    QCheckBox *statusExtrasCheck = new QCheckBox("Show Status Bar Details", uiGroup);
+    statusExtrasCheck->setChecked(statusExtrasVisible);
+    connect(statusExtrasCheck, &QCheckBox::toggled, [this](bool checked) {
+        statusExtrasVisible = checked;
+        statusExtrasWidget->setVisible(checked);
+        toggleStatusExtrasAction->setChecked(checked);
+        settings->setValue("statusExtrasVisible", checked);
+    });
+    uiLayout->addWidget(statusExtrasCheck);
+    
+    layout->addWidget(uiGroup);
+    
+    // ボタン
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *okButton = new QPushButton("OK", prefDialog);
+    QPushButton *cancelButton = new QPushButton("Cancel", prefDialog);
+    
+    connect(okButton, &QPushButton::clicked, prefDialog, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, prefDialog, &QDialog::reject);
+    
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+    
+    layout->addLayout(buttonLayout);
+    
+    prefDialog->exec();
+    delete prefDialog;
 }

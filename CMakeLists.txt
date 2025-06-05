@@ -13,12 +13,12 @@ set(CMAKE_AUTOMOC ON)
 
 # ソースファイル
 set(SOURCES
-    main.cpp
-    MainWindow.cpp
+    src/main.cpp
+    src/MainWindow.cpp
 )
 
 set(HEADERS
-    MainWindow.h
+    src/MainWindow.h
 )
 
 # 実行可能ファイルを作成
