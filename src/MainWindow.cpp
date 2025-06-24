@@ -58,6 +58,33 @@ void CustomTextEdit::resizeEvent(QResizeEvent *event)
 
 void CustomTextEdit::keyPressEvent(QKeyEvent *event)
 {
+    // 🔧 新規追加: ESCキーでブロックモードキャンセル
+    if (event->key() == Qt::Key_Escape) {
+        if (blockMode) {
+            // ブロックモードをキャンセル（コピーなし）
+            blockMode = false;
+            update(); // 選択表示をクリア
+            
+            // 通常の選択も解除
+            QTextCursor cursor = textCursor();
+            cursor.clearSelection();
+            setTextCursor(cursor);
+            
+            return; // 他の処理はスキップ
+        } else if (textCursor().hasSelection()) {
+            // 通常の選択範囲もESCで解除
+            QTextCursor cursor = textCursor();
+            cursor.clearSelection();
+            setTextCursor(cursor);
+            return;
+        } else if (waitingForCtrlQ || waitingForCtrlK) {
+            // 2段階キーバインド待機状態をキャンセル
+            resetTwoKeyMode();
+            return;
+        }
+        // ESCが他に処理されない場合は、通常の処理に続行
+    }
+    
     // 2段階キーバインドの処理
     if (waitingForCtrlQ) {
         handleCtrlQ(event);
@@ -71,6 +98,14 @@ void CustomTextEdit::keyPressEvent(QKeyEvent *event)
     // Ctrl修飾子が押されている場合のWordStarキーバインド
     if (event->modifiers() == Qt::ControlModifier) {
         switch (event->key()) {
+        case Qt::Key_L: // Ctrl+L - 最後の検索を繰り返し（Find Next）
+            {
+                MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+                if (mainWindow) {
+                    mainWindow->wordstarFindNext();
+                }
+            }
+            return;
         case Qt::Key_E: // 上へ
             moveCursor(QTextCursor::Up);
             if (blockMode) updateBlockSelection();
@@ -134,11 +169,12 @@ void CustomTextEdit::keyPressEvent(QKeyEvent *event)
                 cursor.removeSelectedText();
             }
             return;
-        case Qt::Key_Y: // 行削除（カーソル位置から行末まで）
+        case Qt::Key_Y: // 🔧 修正: 行全体削除（行数が減る）
             {
                 QTextCursor cursor = textCursor();
-                cursor.movePosition(QTextCursor::EndOfLine, QTextCursor::KeepAnchor);
-                cursor.removeSelectedText();
+                cursor.select(QTextCursor::LineUnderCursor);  // 行全体を選択
+                cursor.removeSelectedText();  // 行内容削除
+                cursor.deleteChar();          // 改行文字も削除（重要！）
             }
             return;
         case Qt::Key_A: // 単語の左へ
@@ -168,6 +204,22 @@ void CustomTextEdit::handleCtrlQ(QKeyEvent *event)
     
     if (event->modifiers() == Qt::ControlModifier) {
         switch (event->key()) {
+        case Qt::Key_F: // Ctrl+Q, F - 検索ダイアログ
+            {
+                MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+                if (mainWindow) {
+                    mainWindow->wordstarFind();
+                }
+            }
+            break;
+        case Qt::Key_A: // Ctrl+Q, A - 置換ダイアログ  
+            {
+                MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+                if (mainWindow) {
+                    mainWindow->wordstarReplace();
+                }
+            }
+            break;
         case Qt::Key_R: // Ctrl+Q, R - ファイル先頭へ
             moveCursor(QTextCursor::Start);
             break;
@@ -220,52 +272,70 @@ void CustomTextEdit::handleCtrlK(QKeyEvent *event)
             // 視覚的フィードバックのために再描画
             update();
             break;
-case Qt::Key_K: // Ctrl+K, K - 選択終了＋コピー（テキストを残す）
-    if (blockMode) {
-        QTextCursor endCursor = textCursor();
-        QTextCursor selectionCursor = blockStartCursor;
-        
-        // 開始位置から終了位置まで選択
-        int startPos = qMin(blockStartCursor.position(), endCursor.position());
-        int endPos = qMax(blockStartCursor.position(), endCursor.position());
-        
-        selectionCursor.setPosition(startPos);
-        selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
-        setTextCursor(selectionCursor);
-        
-        // 選択されたテキストをクリップボード履歴に保存（コピーのみ、削除しない）
-        if (textCursor().hasSelection()) {
-            QString selectedText = textCursor().selectedText();
             
-            // クリップボード履歴に追加
-            clipboardHistory.prepend(selectedText);
-            if (clipboardHistory.size() > 10) {
-                clipboardHistory.removeLast();
+        case Qt::Key_K: // Ctrl+K, K - 選択終了＋コピー（テキストを残す）
+            if (blockMode) {
+                QTextCursor endCursor = textCursor();
+                QTextCursor selectionCursor = blockStartCursor;
+                
+                // 開始位置から終了位置まで選択
+                int startPos = qMin(blockStartCursor.position(), endCursor.position());
+                int endPos = qMax(blockStartCursor.position(), endCursor.position());
+                
+                selectionCursor.setPosition(startPos);
+                selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
+                setTextCursor(selectionCursor);
+                
+                // 選択されたテキストをクリップボード履歴に保存（コピーのみ、削除しない）
+                if (textCursor().hasSelection()) {
+                    QString selectedText = textCursor().selectedText();
+                    
+                    // クリップボード履歴に追加
+                    clipboardHistory.prepend(selectedText);
+                    if (clipboardHistory.size() > 10) {
+                        clipboardHistory.removeLast();
+                    }
+                    currentClipboardIndex = 0;
+                    
+                    // システムクリップボードにもコピー（テキストは削除しない）
+                    QApplication::clipboard()->setText(selectedText);
+                    
+                    // 選択を解除（テキストは残す）
+                    QTextCursor cursor = textCursor();
+                    cursor.clearSelection();
+                    setTextCursor(cursor);
+                }
+                blockMode = false;
+                update(); // 選択表示をクリア
             }
-            currentClipboardIndex = 0;
+            break;
             
-            // システムクリップボードにもコピー（テキストは削除しない）
-            QApplication::clipboard()->setText(selectedText);
-            
-            // 選択を解除（テキストは残す）
-            QTextCursor cursor = textCursor();
-            cursor.clearSelection();
-            setTextCursor(cursor);
-        }
-        blockMode = false;
-        update(); // 選択表示をクリア
-    }
-    break;            
         case Qt::Key_C: // Ctrl+K, C - ペースト（履歴はそのまま）
             if (!clipboardHistory.isEmpty() && currentClipboardIndex < clipboardHistory.size()) {
                 // 現在のクリップボード項目をペースト（履歴インデックスは変更しない）
                 QTextCursor cursor = textCursor();
                 cursor.insertText(clipboardHistory[currentClipboardIndex]);
+                
+                // 🔧 修正: 貼り付け後は選択範囲をクリア
+                cursor.clearSelection();
+                setTextCursor(cursor);
+                
+                // ブロックモードも終了
+                if (blockMode) {
+                    blockMode = false;
+                    update();
+                }
             } else {
                 // 履歴がない場合は通常のペースト
                 paste();
+                
+                // 🔧 修正: 通常のペースト後も選択をクリア
+                QTextCursor cursor = textCursor();
+                cursor.clearSelection();
+                setTextCursor(cursor);
             }
             break;
+            
         case Qt::Key_V: // Ctrl+K, V - ペースト＆履歴を戻す
             if (!clipboardHistory.isEmpty()) {
                 // 現在のクリップボード項目をペースト
@@ -273,67 +343,83 @@ case Qt::Key_K: // Ctrl+K, K - 選択終了＋コピー（テキストを残す�
                     QTextCursor cursor = textCursor();
                     cursor.insertText(clipboardHistory[currentClipboardIndex]);
                     
+                    // 🔧 修正: 貼り付け後は選択範囲をクリア
+                    cursor.clearSelection();
+                    setTextCursor(cursor);
+                    
                     // 次回は一つ前の履歴を使用
                     currentClipboardIndex++;
                     if (currentClipboardIndex >= clipboardHistory.size()) {
                         currentClipboardIndex = 0; // 循環
                     }
+                    
+                    // ブロックモードも終了
+                    if (blockMode) {
+                        blockMode = false;
+                        update();
+                    }
                 }
             } else {
                 // 履歴がない場合は通常のペースト
                 paste();
+                
+                // 🔧 修正: 通常のペースト後も選択をクリア
+                QTextCursor cursor = textCursor();
+                cursor.clearSelection();
+                setTextCursor(cursor);
             }
             break;
-case Qt::Key_Y: // Ctrl+K, Y - 選択部分をカット（削除）または1行削除
-    if (blockMode) {
-        // ブロックモード中の場合：選択部分をカット
-        QTextCursor endCursor = textCursor();
-        QTextCursor selectionCursor = blockStartCursor;
-        
-        // 開始位置から終了位置まで選択
-        int startPos = qMin(blockStartCursor.position(), endCursor.position());
-        int endPos = qMax(blockStartCursor.position(), endCursor.position());
-        
-        selectionCursor.setPosition(startPos);
-        selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
-        setTextCursor(selectionCursor);
-        
-        // 選択されたテキストをクリップボード履歴に保存してカット
-        if (textCursor().hasSelection()) {
-            QString selectedText = textCursor().selectedText();
             
-            // クリップボード履歴に追加
-            clipboardHistory.prepend(selectedText);
-            if (clipboardHistory.size() > 10) {
-                clipboardHistory.removeLast();
+        case Qt::Key_Y: // Ctrl+K, Y - 選択部分をカット（削除）または1行削除
+            if (blockMode) {
+                // ブロックモード中の場合：選択部分をカット
+                QTextCursor endCursor = textCursor();
+                QTextCursor selectionCursor = blockStartCursor;
+                
+                // 開始位置から終了位置まで選択
+                int startPos = qMin(blockStartCursor.position(), endCursor.position());
+                int endPos = qMax(blockStartCursor.position(), endCursor.position());
+                
+                selectionCursor.setPosition(startPos);
+                selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
+                setTextCursor(selectionCursor);
+                
+                // 選択されたテキストをクリップボード履歴に保存してカット
+                if (textCursor().hasSelection()) {
+                    QString selectedText = textCursor().selectedText();
+                    
+                    // クリップボード履歴に追加
+                    clipboardHistory.prepend(selectedText);
+                    if (clipboardHistory.size() > 10) {
+                        clipboardHistory.removeLast();
+                    }
+                    currentClipboardIndex = 0;
+                    
+                    // テキストを削除（カット）
+                    textCursor().removeSelectedText();
+                    
+                    // システムクリップボードにもコピー
+                    QApplication::clipboard()->setText(selectedText);
+                }
+                blockMode = false;
+                update(); // 選択表示をクリア
+            } else {
+                // ブロックモードでない場合：現在行を削除（元の動作を維持）
+                QTextCursor cursor = textCursor();
+                cursor.select(QTextCursor::LineUnderCursor);
+                QString deletedLine = cursor.selectedText();
+                
+                // 削除した行をクリップボード履歴に追加
+                clipboardHistory.prepend(deletedLine);
+                if (clipboardHistory.size() > 10) {
+                    clipboardHistory.removeLast();
+                }
+                currentClipboardIndex = 0;
+                
+                cursor.removeSelectedText();
+                cursor.deleteChar(); // 改行文字も削除
             }
-            currentClipboardIndex = 0;
-            
-            // テキストを削除（カット）
-            textCursor().removeSelectedText();
-            
-            // システムクリップボードにもコピー
-            QApplication::clipboard()->setText(selectedText);
-        }
-        blockMode = false;
-        update(); // 選択表示をクリア
-    } else {
-        // ブロックモードでない場合：現在行を削除（元の動作を維持）
-        QTextCursor cursor = textCursor();
-        cursor.select(QTextCursor::LineUnderCursor);
-        QString deletedLine = cursor.selectedText();
-        
-        // 削除した行をクリップボード履歴に追加
-        clipboardHistory.prepend(deletedLine);
-        if (clipboardHistory.size() > 10) {
-            clipboardHistory.removeLast();
-        }
-        currentClipboardIndex = 0;
-        
-        cursor.removeSelectedText();
-        cursor.deleteChar(); // 改行文字も削除
-    }
-    break;
+            break;
         }
     }
 }
@@ -380,6 +466,10 @@ void CustomTextEdit::paintEvent(QPaintEvent *event)
         painter.setPen(QPen(Qt::blue, 2, Qt::DashLine));
         QRect startRect = cursorRect(blockStartCursor);
         painter.drawRect(startRect.x() - 2, startRect.y(), 4, startRect.height());
+        
+        // 🔧 新規追加: ESCキャンセルのヒント表示
+        painter.setPen(QPen(Qt::blue, 1));
+        painter.drawText(10, 20, "Block Mode - ESC to cancel, Ctrl+K,K to copy, Ctrl+K,Y to cut");
     } else {
         // ブロックモードでない場合は、ハイライトをクリア
         setExtraSelections(QList<QTextEdit::ExtraSelection>());
@@ -405,8 +495,10 @@ MainWindow::MainWindow(QWidget *parent)
     , textEditor(new CustomTextEdit(this))
     , settings(new QSettings(this))
     , findDialog(nullptr)
-    , toolBarVisible(true)           // 新しく追加
-    , statusExtrasVisible(true)      // 新しく追加
+    , toolBarVisible(true)           
+    , statusExtrasVisible(true)      
+    , lastCaseSensitive(false)       // 🔧 追加
+    , lastWholeWord(false)           // 🔧 追加
 {
     setCentralWidget(textEditor);
     
@@ -524,14 +616,39 @@ void MainWindow::setupMenus()
     
     editMenu->addSeparator();
     
-    findReplaceAction = new QAction("&Find/Replace", this);
-    // WordStarの検索を実装するまで、F3キーを使用
+    // ========== 🔧 検索・置換メニュー項目を追加 ==========
+    
+    // WordStar風検索
+    QAction *wordstarFindAction = new QAction("&Find (WordStar)...", this);
+    wordstarFindAction->setShortcut(QKeySequence("Ctrl+Q,F"));  // 表示用
+    wordstarFindAction->setStatusTip("WordStar style search (Ctrl+Q, F)");
+    connect(wordstarFindAction, &QAction::triggered, this, &MainWindow::wordstarFind);
+    editMenu->addAction(wordstarFindAction);
+    
+    // Find Next
+    QAction *findNextAction = new QAction("Find &Next", this);
+    findNextAction->setShortcut(QKeySequence("Ctrl+L"));
+    findNextAction->setStatusTip("Repeat last search (Ctrl+L)");
+    connect(findNextAction, &QAction::triggered, this, &MainWindow::wordstarFindNext);
+    editMenu->addAction(findNextAction);
+    
+    // WordStar風置換
+    QAction *wordstarReplaceAction = new QAction("&Replace (WordStar)...", this);
+    wordstarReplaceAction->setShortcut(QKeySequence("Ctrl+Q,A"));  // 表示用
+    wordstarReplaceAction->setStatusTip("WordStar style replace (Ctrl+Q, A)");
+    connect(wordstarReplaceAction, &QAction::triggered, this, &MainWindow::wordstarReplace);
+    editMenu->addAction(wordstarReplaceAction);
+    
+    editMenu->addSeparator();
+    
+    // 既存の高機能検索・置換
+    findReplaceAction = new QAction("Find/Replace (&Advanced)...", this);
     findReplaceAction->setShortcut(QKeySequence(Qt::Key_F3));
-    findReplaceAction->setStatusTip("Find and replace text");
+    findReplaceAction->setStatusTip("Advanced find and replace dialog (F3)");
     connect(findReplaceAction, &QAction::triggered, this, &MainWindow::findReplace);
     editMenu->addAction(findReplaceAction);
-    
-// 表示メニュー
+
+    // 表示メニュー
     QMenu *viewMenu = menuBar()->addMenu("&View");
     
     QAction *fontAction = new QAction("&Font...", this);
@@ -603,11 +720,11 @@ void MainWindow::setupStatusBar()
     // 折り返し幅設定
     extrasLayout->addWidget(new QLabel("Wrap:"));
     wrapWidthSpinBox = new QSpinBox();
-    wrapWidthSpinBox->setRange(0, 200);
+    wrapWidthSpinBox->setRange(0, 500);  // 🔧 修正: 0-500文字に拡張
     wrapWidthSpinBox->setValue(80);
     wrapWidthSpinBox->setSpecialValueText("No wrap");
     wrapWidthSpinBox->setSuffix(" chars");
-    wrapWidthSpinBox->setToolTip("Set line wrap (0=no wrap)");
+    wrapWidthSpinBox->setToolTip("Set line wrap (0=no wrap, max 500 chars)");
     connect(wrapWidthSpinBox, QOverload<int>::of(&QSpinBox::valueChanged),
             this, &MainWindow::onWrapWidthChanged);
     extrasLayout->addWidget(wrapWidthSpinBox);
@@ -764,6 +881,130 @@ void MainWindow::findReplace()
     findDialog->activateWindow();
 }
 
+// 🔧 新規追加: WordStar検索メソッド
+void MainWindow::wordstarFind()
+{
+    // 検索専用の簡単なダイアログ
+    QDialog *findDialog = new QDialog(this);
+    findDialog->setWindowTitle("WordStar Search");
+    findDialog->setModal(true);
+    findDialog->resize(400, 150);
+    
+    QVBoxLayout *layout = new QVBoxLayout(findDialog);
+    
+    // 検索テキスト入力
+    QHBoxLayout *searchLayout = new QHBoxLayout();
+    searchLayout->addWidget(new QLabel("Find:"));
+    QLineEdit *searchEdit = new QLineEdit(lastSearchText);
+    searchEdit->selectAll();
+    searchLayout->addWidget(searchEdit);
+    layout->addLayout(searchLayout);
+    
+    // オプション
+    QHBoxLayout *optionLayout = new QHBoxLayout();
+    QCheckBox *caseSensitive = new QCheckBox("Case sensitive");
+    caseSensitive->setChecked(lastCaseSensitive);
+    QCheckBox *wholeWord = new QCheckBox("Whole word");
+    wholeWord->setChecked(lastWholeWord);
+    optionLayout->addWidget(caseSensitive);
+    optionLayout->addWidget(wholeWord);
+    layout->addLayout(optionLayout);
+    
+    // ボタン
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *findButton = new QPushButton("Find Next");
+    QPushButton *cancelButton = new QPushButton("Cancel");
+    findButton->setDefault(true);
+    
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(findButton);
+    buttonLayout->addWidget(cancelButton);
+    layout->addLayout(buttonLayout);
+    
+    // シグナル接続
+    connect(findButton, &QPushButton::clicked, [=]() {
+        QString searchText = searchEdit->text();
+        if (!searchText.isEmpty()) {
+            lastSearchText = searchText;
+            lastCaseSensitive = caseSensitive->isChecked();
+            lastWholeWord = wholeWord->isChecked();
+            
+            performWordStarSearch();
+            findDialog->accept();
+        }
+    });
+    
+    connect(cancelButton, &QPushButton::clicked, findDialog, &QDialog::reject);
+    connect(searchEdit, &QLineEdit::returnPressed, findButton, &QPushButton::click);
+    
+    // フォーカス設定
+    searchEdit->setFocus();
+    
+    findDialog->exec();
+    delete findDialog;
+}
+
+void MainWindow::wordstarReplace()
+{
+    // 既存の高機能な検索・置換ダイアログを開く
+    if (!findDialog) {
+        findDialog = new FindReplaceDialog(this);
+        findDialog->setTextEdit(textEditor);
+    }
+    
+    // 最後の検索テキストを設定
+    if (!lastSearchText.isEmpty()) {
+        findDialog->setSearchText(lastSearchText);
+    }
+    
+    findDialog->show();
+    findDialog->raise();
+    findDialog->activateWindow();
+}
+
+void MainWindow::wordstarFindNext()
+{
+    if (lastSearchText.isEmpty()) {
+        // 検索テキストがない場合は検索ダイアログを開く
+        wordstarFind();
+    } else {
+        // 最後の検索を繰り返し
+        performWordStarSearch();
+    }
+}
+
+void MainWindow::performWordStarSearch()
+{
+    if (lastSearchText.isEmpty()) return;
+    
+    QTextDocument::FindFlags flags = QTextDocument::FindFlags();
+    
+    if (lastCaseSensitive) {
+        flags |= QTextDocument::FindCaseSensitively;
+    }
+    if (lastWholeWord) {
+        flags |= QTextDocument::FindWholeWords;
+    }
+    
+    bool found = textEditor->find(lastSearchText, flags);
+    
+    if (found) {
+        statusLabel->setText(QString("Found: \"%1\" - WordStar Keys Enabled").arg(lastSearchText));
+    } else {
+        // 検索が失敗した場合、文書の最初から再検索
+        QTextCursor cursor = textEditor->textCursor();
+        cursor.movePosition(QTextCursor::Start);
+        textEditor->setTextCursor(cursor);
+        
+        found = textEditor->find(lastSearchText, flags);
+        if (found) {
+            statusLabel->setText(QString("Found from beginning: \"%1\" - WordStar Keys Enabled").arg(lastSearchText));
+        } else {
+            statusLabel->setText(QString("Not found: \"%1\" - WordStar Keys Enabled").arg(lastSearchText));
+        }
+    }
+}
+
 void MainWindow::setFont()
 {
     bool ok;
@@ -780,7 +1021,7 @@ void MainWindow::setWrapWidth()
 {
     bool ok;
     int width = QInputDialog::getInt(this, "Wrap Width",
-        "Characters per line (0=no wrap):", wrapWidthSpinBox->value(), 0, 200, 1, &ok);
+        "Characters per line (0=no wrap):", wrapWidthSpinBox->value(), 0, 500, 1, &ok);  // 🔧 修正: 最大500に変更
     if (ok) {
         wrapWidthSpinBox->setValue(width);
         textEditor->setWrapWidth(width);
@@ -868,7 +1109,7 @@ void MainWindow::loadSettings()
     fontComboBox->setCurrentFont(font);
     fontSizeSpinBox->setValue(font.pointSize());
     
-// 折り返し幅を復元
+    // 折り返し幅を復元
     int wrapWidth = settings->value("wrapWidth", 80).toInt();
     wrapWidthSpinBox->setValue(wrapWidth);
     textEditor->setWrapWidth(wrapWidth);
@@ -901,6 +1142,81 @@ void MainWindow::closeEvent(QCloseEvent *event)
     } else {
         event->ignore();
     }
+}
+
+// 新しく追加するスロット関数
+void MainWindow::toggleToolBar()
+{
+    toolBarVisible = !toolBarVisible;
+    mainToolBar->setVisible(toolBarVisible);
+    toggleToolBarAction->setChecked(toolBarVisible);
+    
+    // 設定を保存
+    settings->setValue("toolBarVisible", toolBarVisible);
+}
+
+void MainWindow::toggleStatusBarExtras()
+{
+    statusExtrasVisible = !statusExtrasVisible;
+    statusExtrasWidget->setVisible(statusExtrasVisible);
+    toggleStatusExtrasAction->setChecked(statusExtrasVisible);
+    
+    // 設定を保存
+    settings->setValue("statusExtrasVisible", statusExtrasVisible);
+}
+
+void MainWindow::showPreferences()
+{
+    // 簡単な設定ダイアログ
+    QDialog *prefDialog = new QDialog(this);
+    prefDialog->setWindowTitle("Preferences");
+    prefDialog->setModal(true);
+    prefDialog->resize(400, 300);
+    
+    QVBoxLayout *layout = new QVBoxLayout(prefDialog);
+    
+    // UI表示設定グループ
+    QGroupBox *uiGroup = new QGroupBox("Interface", prefDialog);
+    QVBoxLayout *uiLayout = new QVBoxLayout(uiGroup);
+    
+    QCheckBox *toolBarCheck = new QCheckBox("Show Tool Bar", uiGroup);
+    toolBarCheck->setChecked(toolBarVisible);
+    connect(toolBarCheck, &QCheckBox::toggled, [this](bool checked) {
+        toolBarVisible = checked;
+        mainToolBar->setVisible(checked);
+        toggleToolBarAction->setChecked(checked);
+        settings->setValue("toolBarVisible", checked);
+    });
+    uiLayout->addWidget(toolBarCheck);
+    
+    QCheckBox *statusExtrasCheck = new QCheckBox("Show Status Bar Details", uiGroup);
+    statusExtrasCheck->setChecked(statusExtrasVisible);
+    connect(statusExtrasCheck, &QCheckBox::toggled, [this](bool checked) {
+        statusExtrasVisible = checked;
+        statusExtrasWidget->setVisible(checked);
+        toggleStatusExtrasAction->setChecked(checked);
+        settings->setValue("statusExtrasVisible", checked);
+    });
+    uiLayout->addWidget(statusExtrasCheck);
+    
+    layout->addWidget(uiGroup);
+    
+    // ボタン
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
+    QPushButton *okButton = new QPushButton("OK", prefDialog);
+    QPushButton *cancelButton = new QPushButton("Cancel", prefDialog);
+    
+    connect(okButton, &QPushButton::clicked, prefDialog, &QDialog::accept);
+    connect(cancelButton, &QPushButton::clicked, prefDialog, &QDialog::reject);
+    
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(okButton);
+    buttonLayout->addWidget(cancelButton);
+    
+    layout->addLayout(buttonLayout);
+    
+    prefDialog->exec();
+    delete prefDialog;
 }
 
 // FindReplaceDialog実装
@@ -957,6 +1273,17 @@ FindReplaceDialog::FindReplaceDialog(QWidget *parent)
 void FindReplaceDialog::setTextEdit(QTextEdit *editor)
 {
     textEditor = editor;
+}
+
+// 🔧 新規追加: テキスト設定メソッド
+void FindReplaceDialog::setSearchText(const QString &text)
+{
+    findLineEdit->setText(text);
+}
+
+void FindReplaceDialog::setReplaceText(const QString &text)
+{
+    replaceLineEdit->setText(text);
 }
 
 void FindReplaceDialog::findNext()
@@ -1036,79 +1363,4 @@ void FindReplaceDialog::replaceAll()
     
     QMessageBox::information(this, "Replace All", 
         QString("Replaced %1 occurrences").arg(replacements));
-}
-
-// 新しく追加するスロット関数
-void MainWindow::toggleToolBar()
-{
-    toolBarVisible = !toolBarVisible;
-    mainToolBar->setVisible(toolBarVisible);
-    toggleToolBarAction->setChecked(toolBarVisible);
-    
-    // 設定を保存
-    settings->setValue("toolBarVisible", toolBarVisible);
-}
-
-void MainWindow::toggleStatusBarExtras()
-{
-    statusExtrasVisible = !statusExtrasVisible;
-    statusExtrasWidget->setVisible(statusExtrasVisible);
-    toggleStatusExtrasAction->setChecked(statusExtrasVisible);
-    
-    // 設定を保存
-    settings->setValue("statusExtrasVisible", statusExtrasVisible);
-}
-
-void MainWindow::showPreferences()
-{
-    // 簡単な設定ダイアログ
-    QDialog *prefDialog = new QDialog(this);
-    prefDialog->setWindowTitle("Preferences");
-    prefDialog->setModal(true);
-    prefDialog->resize(400, 300);
-    
-    QVBoxLayout *layout = new QVBoxLayout(prefDialog);
-    
-    // UI表示設定グループ
-    QGroupBox *uiGroup = new QGroupBox("Interface", prefDialog);
-    QVBoxLayout *uiLayout = new QVBoxLayout(uiGroup);
-    
-    QCheckBox *toolBarCheck = new QCheckBox("Show Tool Bar", uiGroup);
-    toolBarCheck->setChecked(toolBarVisible);
-    connect(toolBarCheck, &QCheckBox::toggled, [this](bool checked) {
-        toolBarVisible = checked;
-        mainToolBar->setVisible(checked);
-        toggleToolBarAction->setChecked(checked);
-        settings->setValue("toolBarVisible", checked);
-    });
-    uiLayout->addWidget(toolBarCheck);
-    
-    QCheckBox *statusExtrasCheck = new QCheckBox("Show Status Bar Details", uiGroup);
-    statusExtrasCheck->setChecked(statusExtrasVisible);
-    connect(statusExtrasCheck, &QCheckBox::toggled, [this](bool checked) {
-        statusExtrasVisible = checked;
-        statusExtrasWidget->setVisible(checked);
-        toggleStatusExtrasAction->setChecked(checked);
-        settings->setValue("statusExtrasVisible", checked);
-    });
-    uiLayout->addWidget(statusExtrasCheck);
-    
-    layout->addWidget(uiGroup);
-    
-    // ボタン
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    QPushButton *okButton = new QPushButton("OK", prefDialog);
-    QPushButton *cancelButton = new QPushButton("Cancel", prefDialog);
-    
-    connect(okButton, &QPushButton::clicked, prefDialog, &QDialog::accept);
-    connect(cancelButton, &QPushButton::clicked, prefDialog, &QDialog::reject);
-    
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(okButton);
-    buttonLayout->addWidget(cancelButton);
-    
-    layout->addLayout(buttonLayout);
-    
-    prefDialog->exec();
-    delete prefDialog;
 }
