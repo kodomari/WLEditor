@@ -104,6 +104,9 @@ private slots:
     void toggleToolBar();
     void toggleStatusBarExtras();
     void showPreferences();
+    void wordstarFind();
+    void wordstarReplace();  
+    void wordstarFindNext();
 
 private:
     void setupMenus();
@@ -144,7 +147,9 @@ private:
     QAction *toggleToolBarAction;
     QAction *toggleStatusExtrasAction;
     QAction *preferencesAction;
-    
+    QString lastSearchText;
+    bool lastCaseSensitive;
+    bool lastWholeWord;   
     // 設定用メンバー
     bool toolBarVisible;
     bool statusExtrasVisible;
@@ -159,6 +164,8 @@ private:
 class FindReplaceDialog : public QDialog
 {
     Q_OBJECT
+void setSearchText(const QString &text);
+void setReplaceText(const QString &text);
 
 public:
     FindReplaceDialog(QWidget *parent = nullptr);
@@ -183,6 +190,7 @@ private:
     
     QTextEdit *textEditor;
     QTextCursor lastFoundCursor;
+
 };
 
 #endif // MAINWINDOW_H
