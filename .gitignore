@@ -1,0 +1,92 @@
+# Build directories
+build/
+build-*/
+*build/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Qt
+*.moc
+moc_*.cpp
+*.qm
+*.qrc.depends
+*.qrc.cpp
+
+# Android
+*.apk
+*.aab
+*.keystore
+android-build/
+.gradle/
+local.properties
+
+# IDE
+.vscode/
+.idea/
+*.pro.user*
+*.vcxproj*
+*.sln
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+*.swp
+*.swo
+
+# Log files
+*.log
+
+# Object files
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Executables
+wledit
+wordstar-editor
+*.exe
+
+# AppImage
+*.AppImage
+*.AppDir/
+
+# Release artifacts
+release/
+dist/
+
+# Test files
+test_*.txt
+*.test
+
+# Documentation build
+docs/_build/
+docs/html/
+docs/latex/
+
+# Python (if any scripts)
+__pycache__/
+*.pyc
+*.pyo
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Editor temp files
+.#*
+#*#

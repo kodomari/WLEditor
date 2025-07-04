@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WLEditor</string>
+    <string name="ministro_not_found_msg">Ministro service was not found on your device, would you like to install it? The application can\'t run without it.</string>
+    <string name="ministro_needed_msg">This application requires Ministro service. Would you like to install it?</string>
+    <string name="fatal_error_msg">Your application encountered a fatal error and cannot continue.</string>
+    
+    <!-- WordStar specific strings -->
+    <string name="wordstar_help_title">WordStar Key Bindings</string>
+    <string name="diamond_navigation">Diamond Navigation: Ctrl+E/S/D/X for Up/Down/Left/Right</string>
+    <string name="clipboard_help">Multi-level clipboard: Ctrl+C copies, Ctrl+V pastes from history</string>
+    <string name="search_help">Search: Ctrl+Q+F to find, Ctrl+L to find next</string>
+    
+    <!-- Menu strings -->
+    <string name="menu_file">File</string>
+    <string name="menu_edit">Edit</string>
+    <string name="menu_view">View</string>
+    <string name="menu_help">Help</string>
+    
+    <!-- File operations -->
+    <string name="new_file">New</string>
+    <string name="open_file">Open</string>
+    <string name="save_file">Save</string>
+    <string name="save_as">Save As</string>
+    
+    <!-- Edit operations -->
+    <string name="undo">Undo</string>
+    <string name="redo">Redo</string>
+    <string name="cut">Cut</string>
+    <string name="copy">Copy</string>
+    <string name="paste">Paste</string>
+    <string name="select_all">Select All</string>
+    <string name="find_replace">Find &amp; Replace</string>
+</resources>

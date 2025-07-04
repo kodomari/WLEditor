@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_レイヤー_1" data-name="レイヤー_1" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512">
+  <!-- Generator: Adobe Illustrator 29.5.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 141)  -->
+  <defs>
+    <style>
+      .st0 {
+        fill: tomato;
+      }
+
+      .st1 {
+        fill: #a0896b;
+      }
+
+      .st2 {
+        filter: url(#glow);
+      }
+
+      .st2, .st3 {
+        font-family: CourierNewPS-BoldMT, 'Courier New';
+        font-size: 159.73px;
+        font-weight: 700;
+        letter-spacing: .11em;
+      }
+
+      .st2, .st3, .st4 {
+        fill: #90ee90;
+      }
+
+      .st3 {
+        filter: url(#strongGlow);
+      }
+
+      .st5, .st6 {
+        fill: #e8d5c4;
+      }
+
+      .st7 {
+        fill: #f5e6d3;
+        stroke-width: 3px;
+      }
+
+      .st7, .st8 {
+        stroke: #8b7355;
+      }
+
+      .st9 {
+        fill: #0a2a0a;
+      }
+
+      .st10 {
+        filter: url(#glow1);
+      }
+
+      .st11, .st12 {
+        fill: none;
+      }
+
+      .st6 {
+        stroke: #a0896b;
+      }
+
+      .st13 {
+        fill: #32cd32;
+      }
+
+      .st14 {
+        filter: url(#glow5);
+      }
+
+      .st15 {
+        fill: #1a4a1a;
+      }
+
+      .st16 {
+        fill: #0f3f0f;
+      }
+
+      .st17 {
+        fill: url(#_名称未設定グラデーション);
+      }
+
+      .st4 {
+        opacity: .05;
+      }
+
+      .st4, .st18 {
+        isolation: isolate;
+      }
+
+      .st19 {
+        filter: url(#glow2);
+      }
+
+      .st8 {
+        fill: #d4c4a8;
+      }
+
+      .st8, .st12 {
+        stroke-width: 2px;
+      }
+
+      .st20 {
+        fill: url(#scanlines);
+      }
+
+      .st21 {
+        filter: url(#glow3);
+      }
+
+      .st22 {
+        filter: url(#screenGlow);
+      }
+
+      .st12 {
+        stroke: #90ee90;
+      }
+
+      .st18 {
+        fill: #ff4500;
+        opacity: .9;
+      }
+
+      .st23 {
+        filter: url(#glow4);
+      }
+    </style>
+    <filter id="screenGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="8"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <pattern id="scanlines" x="0" y="0" width="4" height="4" patternTransform="translate(2 -15530.82) scale(1 -1)" patternUnits="userSpaceOnUse" viewBox="0 0 4 4">
+      <g>
+        <rect class="st11" width="4" height="4"/>
+        <rect class="st4" y="2" width="4" height="2"/>
+        <rect width="4" height="2"/>
+      </g>
+    </pattern>
+    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="8"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="5"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow1" data-name="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="5"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow2" data-name="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="5"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow3" data-name="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="5"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="glow4" data-name="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="5"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="_名称未設定グラデーション" data-name="名称未設定グラデーション" x1="-309.25" y1="681.81" x2="-308.25" y2="680.81" gradientTransform="translate(128698 196409.39) scale(416 -288)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff" stop-opacity=".1"/>
+      <stop offset=".3" stop-color="#fff" stop-opacity=".05"/>
+      <stop offset=".7" stop-color="#000" stop-opacity=".05"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".1"/>
+    </linearGradient>
+    <filter id="glow5" data-name="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur result="coloredBlur" stdDeviation="5"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect class="st7" x="16" y="16" width="480" height="360" rx="40" ry="40"/>
+  <rect class="st6" x="20" y="20" width="472" height="352" rx="36" ry="36"/>
+  <rect class="st8" x="32" y="32" width="448" height="320" rx="20" ry="20"/>
+  <rect class="st9" x="48" y="48" width="416" height="288" rx="12" ry="12"/>
+  <g class="st22">
+    <rect class="st15" x="48" y="48" width="416" height="288" rx="12" ry="12"/>
+  </g>
+  <rect class="st16" x="64" y="64" width="384" height="256" rx="8" ry="8"/>
+  <rect class="st20" x="64" y="64" width="384" height="256"/>
+  <g>
+    <text class="st3" transform="translate(151.67 238.52) scale(1.02 1)"><tspan x="0" y="0">WE</tspan></text>
+    <text class="st2" transform="translate(151.67 238.52) scale(1.02 1)"><tspan x="0" y="0">WE</tspan></text>
+  </g>
+  <g class="st10">
+    <polygon class="st13" points="255.3 80 347.25 100 301.27 100 301.27 116 209.32 116 209.32 100 163.35 100 255.3 80"/>
+    <polygon class="st12" points="255.3 80 347.25 100 301.27 100 301.27 116 209.32 116 209.32 100 163.35 100 255.3 80"/>
+  </g>
+  <g class="st19">
+    <polygon class="st13" points="255.3 304 347.25 284 301.27 284 301.27 268 209.32 268 209.32 284 163.35 284 255.3 304"/>
+    <polygon class="st12" points="255.3 304 347.25 284 301.27 284 301.27 268 209.32 268 209.32 284 163.35 284 255.3 304"/>
+  </g>
+  <g class="st21">
+    <polygon class="st13" points="76.38 190.66 107.04 249.16 107.04 219.91 131.57 219.91 131.57 161.41 107.04 161.41 107.04 132.16 76.38 190.66"/>
+    <polygon class="st12" points="76.38 190.66 107.04 249.16 107.04 219.91 131.57 219.91 131.57 161.41 107.04 161.41 107.04 132.16 76.38 190.66"/>
+  </g>
+  <g class="st23">
+    <polygon class="st13" points="432 190.66 401.34 249.16 401.34 219.91 376.82 219.91 376.82 161.41 401.34 161.41 401.34 132.16 432 190.66"/>
+    <polygon class="st12" points="432 190.66 401.34 249.16 401.34 219.91 376.82 219.91 376.82 161.41 401.34 161.41 401.34 132.16 432 190.66"/>
+  </g>
+  <rect class="st17" x="48" y="48" width="416" height="288" rx="12" ry="12"/>
+  <path class="st8" d="M56,376h400c13.25,0,24,10.75,24,24h0c0,13.25-10.75,24-24,24H56c-13.25,0-24-10.75-24-24h0c0-13.25,10.75-24,24-24Z"/>
+  <path class="st5" d="M56,384h400c8.84,0,16,7.16,16,16h0c0,8.84-7.16,16-16,16H56c-8.84,0-16-7.16-16-16h0c0-8.84,7.16-16,16-16Z"/>
+  <circle class="st18" cx="432" cy="400" r="6"/>
+  <g class="st14">
+    <circle class="st0" cx="432" cy="400" r="3"/>
+  </g>
+  <rect class="st1" x="360" y="340" width="80" height="4"/>
+  <rect class="st1" x="360" y="348" width="80" height="4"/>
+  <rect class="st1" x="360" y="356" width="80" height="4"/>
+</svg>

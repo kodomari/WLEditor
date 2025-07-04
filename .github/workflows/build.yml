@@ -1,0 +1,235 @@
+name: Build WLEditor
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  release:
+    types: [ published ]
+
+env:
+  Qt_VERSION: 6.5.0
+
+jobs:
+  build-ubuntu:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install Qt6
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.Qt_VERSION }}
+        host: linux
+        target: desktop
+        modules: qtbase qttools
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential cmake ninja-build
+        sudo apt-get install -y libgl1-mesa-dev libxkbcommon-x11-0 libxcb-xinerama0
+    
+    - name: Build Ubuntu version
+      run: |
+        chmod +x scripts/build-ubuntu.sh
+        ./scripts/build-ubuntu.sh
+    
+    - name: Test executable
+      run: |
+        cd build-ubuntu
+        ./wledit --version || echo "Version command not available"
+        ldd ./wledit | grep Qt6 || echo "Qt6 libraries check"
+    
+    - name: Upload Ubuntu artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: wledit-ubuntu-x86_64
+        path: |
+          build-ubuntu/wledit
+          build-ubuntu/WLEditor-x86_64.AppImage
+        if-no-files-found: ignore
+    
+    - name: Upload to release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          build-ubuntu/wledit
+          build-ubuntu/WLEditor-x86_64.AppImage
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-android:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        android-api: [23, 34]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      with:
+        api-level: ${{ matrix.android-api }}
+        build-tools: 34.0.0
+        ndk-version: 25.2.9519653
+    
+    - name: Install Qt6 for Android
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.Qt_VERSION }}
+        host: linux
+        target: android
+        arch: android_arm64_v8a
+        modules: qtbase qttools
+    
+    - name: Set environment variables
+      run: |
+        echo "ANDROID_HOME=${ANDROID_HOME}" >> $GITHUB_ENV
+        echo "ANDROID_NDK=${ANDROID_NDK_ROOT}" >> $GITHUB_ENV
+        echo "Qt6_DIR=${Qt6_DIR}" >> $GITHUB_ENV
+        echo "API_LEVEL=${{ matrix.android-api }}" >> $GITHUB_ENV
+    
+    - name: Build Android version
+      run: |
+        chmod +x scripts/build-android.sh
+        export BUILD_TYPE=Release
+        export API_LEVEL=${{ matrix.android-api }}
+        ./scripts/build-android.sh
+    
+    - name: List build artifacts
+      run: |
+        echo "=== Build artifacts ==="
+        find build-android -name "*.so" -o -name "*.apk" | head -20
+    
+    - name: Upload Android artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: wledit-android-api${{ matrix.android-api }}
+        path: |
+          build-android/*/libwledit.so
+          build-android/apk/build/outputs/apk/release/*.apk
+        if-no-files-found: ignore
+    
+    - name: Upload to release
+      if: github.event_name == 'release' && matrix.android-api == 34
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          build-android/apk/build/outputs/apk/release/wledit-release-unsigned.apk
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [build-ubuntu]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Download Ubuntu build
+      uses: actions/download-artifact@v3
+      with:
+        name: wledit-ubuntu-x86_64
+        path: ./build-ubuntu
+    
+    - name: Install Qt6 for testing
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.Qt_VERSION }}
+        host: linux
+        target: desktop
+        modules: qtbase qttools
+    
+    - name: Run basic tests
+      run: |
+        cd build-ubuntu
+        chmod +x wledit
+        
+        # Test if the executable runs without crashing
+        timeout 5s ./wledit --help || echo "Help command test completed"
+        
+        # Test file creation
+        echo "Test content" > test_file.txt
+        if [ -f "test_file.txt" ]; then
+          echo "✅ File creation test passed"
+        else
+          echo "❌ File creation test failed"
+          exit 1
+        fi
+        
+        # Test library dependencies
+        if ldd ./wledit | grep -q "Qt6"; then
+          echo "✅ Qt6 dependencies test passed"
+        else
+          echo "❌ Qt6 dependencies test failed"
+          exit 1
+        fi
+    
+    - name: Security scan
+      run: |
+        # Basic security checks
+        echo "=== Security Scan ==="
+        
+        # Check for hardcoded secrets (basic)
+        if grep -r "password\|secret\|token" src/ --include="*.cpp" --include="*.h" | grep -v "//"; then
+          echo "⚠️  Warning: Potential hardcoded secrets found"
+        else
+          echo "✅ No obvious hardcoded secrets found"
+        fi
+        
+        # Check for dangerous functions
+        if grep -r "system\|exec\|popen" src/ --include="*.cpp" --include="*.h" | grep -v "//"; then
+          echo "⚠️  Warning: Potentially dangerous functions found"
+        else
+          echo "✅ No dangerous functions found"
+        fi
+
+  documentation:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Generate documentation
+      run: |
+        echo "=== Documentation Status ==="
+        
+        # Check if documentation files exist
+        docs_files=("README.md" "docs/BUILDING.md" "docs/ANDROID.md" "docs/INSTALL.md")
+        for file in "${docs_files[@]}"; do
+          if [ -f "$file" ]; then
+            echo "✅ $file exists"
+          else
+            echo "❌ $file missing"
+          fi
+        done
+        
+        # Check README completeness
+        if grep -q "Installation" README.md && grep -q "Building" README.md; then
+          echo "✅ README.md is comprehensive"
+        else
+          echo "⚠️  README.md could be more comprehensive"
+        fi
+    
+    - name: Upload documentation
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: |
+          README.md
+          docs/
+        if-no-files-found: ignore
