@@ -5,43 +5,45 @@ project(WLEditor VERSION 1.2.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Qt6を検索
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+# Qt6を検索 (Android以外)
+if(NOT ANDROID)
+    find_package(Qt6 REQUIRED COMPONENTS Core Widgets)
+endif()
 
 # Qt MOCを有効化
 set(CMAKE_AUTOMOC ON)
 
 # ソースファイル
-set(SOURCES
-    src/main.cpp
-    src/MainWindow.cpp
-)
-
-set(HEADERS
-    src/MainWindow.h
-)
+if(ANDROID)
+    set(SOURCES
+        src/android_main.cpp
+    )
+    set(HEADERS)
+else()
+    set(SOURCES
+        src/main.cpp
+        src/MainWindow.cpp
+    )
+    set(HEADERS
+        src/MainWindow.h
+    )
+endif()
 
 # プラットフォーム固有の設定
 if(ANDROID)
     # Android固有の設定
     set(ANDROID_PACKAGE_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/android")
     
-    # Android用の共有ライブラリを作成
+    # Android用の共有ライブラリを作成（Qt不使用）
     add_library(wledit SHARED ${SOURCES} ${HEADERS})
     
     # Android用ライブラリをリンク
     find_library(log-lib log)
-    target_link_libraries(wledit Qt6::Core Qt6::Widgets ${log-lib})
+    find_library(android-lib android)
+    target_link_libraries(wledit ${log-lib} ${android-lib})
+    target_compile_definitions(wledit PRIVATE ANDROID_BUILD)
     
-    # Android用リソースを追加
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/android/res/values/strings.xml")
-        qt_add_resources(wledit "android_resources"
-            BASE "${CMAKE_CURRENT_SOURCE_DIR}/android"
-            FILES
-                android/res/values/strings.xml
-                android/AndroidManifest.xml
-        )
-    endif()
+    # Android用リソースは不要（Gradleが処理）
     
 else()
     # Ubuntu/Linux用の実行可能ファイルを作成

@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.wleditor.app"
+    android:versionCode="2"
+    android:versionName="1.2.0">
+    
+    <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="34"/>
+    
+    <!-- Permissions -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_DOCUMENTS"/>
+    
+    <application android:label="WLEditor"
+                android:icon="@mipmap/ic_launcher"
+                android:theme="@android:style/Theme.Material"
+                android:allowBackup="true"
+                android:supportsRtl="true">
+        
+        <activity android:name=".MainActivity"
+                 android:exported="true"
+                 android:launchMode="singleTop"
+                 android:screenOrientation="unspecified"
+                 android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density|touchscreen">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            
+            <!-- File associations -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            
+            <intent-filter>
+                <action android:name="android.intent.action.EDIT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            
+            <meta-data android:name="android.app.lib_name" android:value="wledit"/>
+        </activity>
+    </application>
+</manifest>
