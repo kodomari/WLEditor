@@ -21,28 +21,41 @@ WLEditor brings the efficiency of 1980s WordStar key bindings to modern computin
 
 ## ⚡ Quick Start
 
+### Linux/Ubuntu
 ```bash
 # Clone and build
-git clone https://github.com/yourusername/WLEditor.git
+git clone https://github.com/kodomari/WLEditor.git
 cd WLEditor
 mkdir build && cd build
 cmake .. && make -j$(nproc)
 
 # Run
 ./wledit
-📚 Documentation
+```
 
-Building Guide - Detailed build instructions for all platforms
-Installation Guide - System installation and desktop integration
-Key Map Reference - Complete WordStar key bindings reference
-Android Guide - Android development and deployment
+### Android APK
+Download the latest APK from [Releases](https://github.com/kodomari/WLEditor/releases) or build from source:
 
-🤝 Contributing
+```bash
+# Build Android APK (requires Android SDK/NDK)
+./scripts/build-android-quick.sh
+```
+
+## 📚 Documentation
+
+- [Building Guide](docs/BUILDING.md) - Detailed build instructions for all platforms
+- [Installation Guide](docs/INSTALL.md) - System installation and desktop integration
+- [Key Map Reference](docs/KEYMAP.md) - Complete WordStar key bindings reference
+- [Android Build Guide](docs/ANDROID_BUILD_GUIDE.md) - Android development and deployment
+- [Quick Rebuild Guide](docs/QUICK_REBUILD.md) - Fast rebuild for development
+
+## 🤝 Contributing
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
-📄 License
+## 📄 License
 This project is licensed under the GNU General Public License v3.0 - see the LICENSE file for details.
-🙏 Acknowledgments
 
-WordStar - The original diamond navigation concept
-Qt Project - Excellent cross-platform framework
-Noto Fonts - Beautiful CJK font support
+## 🙏 Acknowledgments
+
+- **WordStar** - The original diamond navigation concept
+- **Qt Project** - Excellent cross-platform framework
+- **Noto Fonts** - Beautiful CJK font support
