@@ -1,23 +1,26 @@
 #!/bin/bash
-set -e
+echo "Installing WLEditor v1.3.0..."
+sudo cp wledit /usr/local/bin/
+sudo cp wledit.png /usr/share/icons/
 
-echo "Installing WLEditor..."
+# 正しいデスクトップファイルを作成
+sudo tee /usr/share/applications/wledit.desktop > /dev/null << 'DESKTOP_EOF'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=WLEditor
+Comment=WordStar-like Text Editor
+GenericName=Text Editor
+Exec=/usr/local/bin/wledit %F
+Icon=wledit
+Terminal=false
+StartupNotify=true
+StartupWMClass=WLEditor
+Categories=TextEditor;
+Keywords=editor;text;wordstar;programming;
+MimeType=text/plain;text/x-c;text/x-c++;text/x-c++src;text/x-csrc;text/x-chdr;text/x-python;text/x-java;text/x-makefile;text/x-script;application/x-shellscript;text/x-cmake;text/x-qml;
+DESKTOP_EOF
 
-# 実行ファイルをシステムにコピー
-sudo cp ../build/wledit /usr/local/bin/wleditor
-sudo chmod +x /usr/local/bin/wleditor
-
-# アイコンをシステムにコピー
-sudo mkdir -p /usr/local/share/icons
-sudo cp ../icons/wledit.png /usr/local/share/icons/
-sudo cp ../icons/wledit.svg /usr/local/share/icons/
-
-# デスクトップエントリをシステムにコピー
-sudo cp wledit.desktop /usr/share/applications/
-
-# デスクトップデータベース更新
 sudo update-desktop-database
-
 echo "✅ WLEditor installed successfully!"
-echo "📱 You can now find WLEditor in your application menu"
-echo "🖥️  Or run 'wleditor' from terminal"
+echo "🚀 Run with: wledit"
