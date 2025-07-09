@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- CRT Monitor -->
+  <rect x="8" y="16" width="112" height="84" rx="8" fill="#2a2a2a" stroke="#00ff00" stroke-width="2"/>
+  <rect x="16" y="24" width="96" height="68" fill="#000000"/>
+  
+  <!-- Screen content -->
+  <text x="32" y="40" font-family="monospace" font-size="8" fill="#00ff00">WL&gt; EDIT FILE.TXT</text>
+  <text x="32" y="52" font-family="monospace" font-size="6" fill="#00aa00">^K^S SAVE  ^K^Q QUIT</text>
+  <text x="32" y="64" font-family="monospace" font-size="6" fill="#00aa00">^K^F FIND  ^Z UNDO</text>
+  
+  <!-- Cursor -->
+  <rect x="30" y="70" width="8" height="2" fill="#00ff00"/>
+  
+  <!-- Monitor base -->
+  <rect x="48" y="100" width="32" height="12" rx="2" fill="#444444"/>
+  <rect x="56" y="112" width="16" height="8" rx="1" fill="#333333"/>
+</svg>

@@ -1,4 +1,6 @@
 #include <QApplication>
+#include <QIcon>
+#include <QFile>
 #include "MainWindow.h"
 
 #ifdef Q_OS_ANDROID
@@ -11,9 +13,13 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     
     app.setApplicationName("WLEditor");
-    app.setApplicationVersion("1.2.0");
+    app.setApplicationVersion("1.3.0");
     app.setOrganizationName("WLEditor");
     app.setOrganizationDomain("wleditor.com");
+    app.setDesktopFileName("wledit.desktop");
+    
+    // アプリケーションアイコン設定（全プラットフォーム共通）
+    app.setWindowIcon(QIcon("/usr/local/share/icons/wledit.png")); 
     
 #ifdef Q_OS_ANDROID
     // Android固有の初期化
@@ -21,7 +27,7 @@ int main(int argc, char *argv[])
     
     // Android用のデフォルトフォントサイズを調整
     QFont defaultFont = app.font();
-    defaultFont.setPointSize(12); // タッチデバイス用に少し大きめ
+    defaultFont.setPointSize(12);
     app.setFont(defaultFont);
     
     // Android用のスタイルシート（タッチフレンドリー）
@@ -65,6 +71,15 @@ int main(int argc, char *argv[])
 #endif
     
     MainWindow window;
+    
+    // コマンドライン引数でファイルが指定された場合
+    if (argc > 1) {
+        QString fileName = argv[1];
+        if (QFile::exists(fileName)) {
+            window.openFileFromArgs(fileName);
+        }
+    }
+    
     window.show();
     
     return app.exec();

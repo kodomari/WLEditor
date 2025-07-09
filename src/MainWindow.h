@@ -29,10 +29,10 @@
 #include <QKeyEvent>
 #include <QTimer>
 #include <QPaintEvent>
-#include <QPaintEvent>
-#include <QToolBar>        // 新しく追加
-#include <QGroupBox>       // 新しく追加
-#include <QWidget>         // 新しく追加
+#include <QToolBar>
+#include <QGroupBox>
+#include <QWidget>
+#include <QProcess>
 
 class FindReplaceDialog;
 
@@ -83,8 +83,9 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+    void openFileFromArgs(const QString &fileName);
 
-    // 🔧 修正: WordStar検索メソッドを public に移動
+    // WordStar検索メソッド
     void wordstarFind();
     void wordstarReplace();  
     void wordstarFindNext();
@@ -92,6 +93,7 @@ public:
 private slots:
     void newFile();
     void openFile();
+    void openInNewWindow();
     void saveFile();
     void saveAsFile();
     void copy();
@@ -120,7 +122,7 @@ private:
     void loadSettings();
     void saveSettings();
     
-    // 🔧 追加: WordStar検索用プライベートメソッド
+    // WordStar検索用プライベートメソッド
     void performWordStarSearch();
     
     CustomTextEdit *textEditor;
@@ -136,6 +138,7 @@ private:
     // アクション
     QAction *newAction;
     QAction *openAction;
+    QAction *openInNewWindowAction;
     QAction *saveAction;
     QAction *saveAsAction;
     QAction *exitAction;
@@ -160,7 +163,7 @@ private:
     QToolBar *mainToolBar;
     QWidget *statusExtrasWidget;
     
-    // 🔧 追加: WordStar検索用メンバー
+    // WordStar検索用メンバー
     QString lastSearchText;
     bool lastCaseSensitive;
     bool lastWholeWord;
@@ -174,8 +177,6 @@ class FindReplaceDialog : public QDialog
 public:
     FindReplaceDialog(QWidget *parent = nullptr);
     void setTextEdit(QTextEdit *editor);
-    
-    // 🔧 修正: テキスト設定メソッドを public に移動
     void setSearchText(const QString &text);
     void setReplaceText(const QString &text);
 

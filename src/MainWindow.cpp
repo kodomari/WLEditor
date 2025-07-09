@@ -12,6 +12,7 @@
 #include <QClipboard>
 #include <QPainter>
 #include <QPaintEvent>
+#include <QProcess>
 
 // CustomTextEdit実装
 CustomTextEdit::CustomTextEdit(QWidget *parent)
@@ -24,12 +25,12 @@ CustomTextEdit::CustomTextEdit(QWidget *parent)
     , currentClipboardIndex(0)
 {
     updateWrapWidth();
-    setAcceptRichText(false); // プレーンテキストのみ
+    setAcceptRichText(false);
     
     // リセットタイマーの設定
     resetTimer = new QTimer(this);
     resetTimer->setSingleShot(true);
-    resetTimer->setInterval(3000); // 3秒でリセット
+    resetTimer->setInterval(3000);
     connect(resetTimer, &QTimer::timeout, this, &CustomTextEdit::resetTwoKeyMode);
 }
 
@@ -58,48 +59,63 @@ void CustomTextEdit::resizeEvent(QResizeEvent *event)
 
 void CustomTextEdit::keyPressEvent(QKeyEvent *event)
 {
-    // 🔧 新規追加: ESCキーでブロックモードキャンセル
+    // 🔧 一番最初に追加
+    qDebug() << "keyPressEvent: key=" << event->key() << "modifiers=" << event->modifiers();
+    
+    // 🔧 Ctrl+キーの詳細ログ
+    if (event->modifiers() == Qt::ControlModifier) {
+        qDebug() << "=== CTRL KEY PRESSED ===";
+        qDebug() << "Key code:" << event->key() << "(" << QChar(event->key()).toLatin1() << ")";
+        qDebug() << "waitingForCtrlQ:" << waitingForCtrlQ;
+        qDebug() << "waitingForCtrlK:" << waitingForCtrlK;
+    }
+
+    // ESCキーでブロックモードキャンセル
     if (event->key() == Qt::Key_Escape) {
         if (blockMode) {
-            // ブロックモードをキャンセル（コピーなし）
             blockMode = false;
-            update(); // 選択表示をクリア
-            
-            // 通常の選択も解除
+            update();
             QTextCursor cursor = textCursor();
             cursor.clearSelection();
             setTextCursor(cursor);
-            
-            return; // 他の処理はスキップ
+            return;
         } else if (textCursor().hasSelection()) {
-            // 通常の選択範囲もESCで解除
             QTextCursor cursor = textCursor();
             cursor.clearSelection();
             setTextCursor(cursor);
             return;
         } else if (waitingForCtrlQ || waitingForCtrlK) {
-            // 2段階キーバインド待機状態をキャンセル
             resetTwoKeyMode();
             return;
         }
-        // ESCが他に処理されない場合は、通常の処理に続行
     }
     
     // 2段階キーバインドの処理
     if (waitingForCtrlQ) {
+        MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+        if (mainWindow) {
+            mainWindow->statusBar()->showMessage("Processing Ctrl+Q command...", 1000);
+        }
         handleCtrlQ(event);
         return;
     }
     if (waitingForCtrlK) {
+        MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+        if (mainWindow) {
+            mainWindow->statusBar()->showMessage("Processing Ctrl+K command...", 1000);
+        }
         handleCtrlK(event);
         return;
     }
     
     // Ctrl修飾子が押されている場合のWordStarキーバインド
     if (event->modifiers() == Qt::ControlModifier) {
+        qDebug() << "=== ENTERING CTRL SWITCH ===";  // 🔧 追加
+        qDebug() << "About to check key:" << event->key();  // 🔧 追加
         switch (event->key()) {
-        case Qt::Key_L: // Ctrl+L - 最後の検索を繰り返し（Find Next）
+        case Qt::Key_L: // Ctrl+L - 最後の検索を繰り返し
             {
+                qDebug() << "Processing Ctrl+L";
                 MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
                 if (mainWindow) {
                     mainWindow->wordstarFindNext();
@@ -150,13 +166,13 @@ void CustomTextEdit::keyPressEvent(QKeyEvent *event)
                 ensureCursorVisible();
             }
             return;
-        case Qt::Key_G: // 右の文字を削除（Delete）
+        case Qt::Key_G: // 右の文字を削除
             {
                 QTextCursor cursor = textCursor();
                 cursor.deleteChar();
             }
             return;
-        case Qt::Key_H: // 左の文字を削除（Backspace）
+        case Qt::Key_H: // 左の文字を削除
             {
                 QTextCursor cursor = textCursor();
                 cursor.deletePreviousChar();
@@ -169,12 +185,12 @@ void CustomTextEdit::keyPressEvent(QKeyEvent *event)
                 cursor.removeSelectedText();
             }
             return;
-        case Qt::Key_Y: // 🔧 修正: 行全体削除（行数が減る）
+        case Qt::Key_Y: // 行全体削除
             {
                 QTextCursor cursor = textCursor();
-                cursor.select(QTextCursor::LineUnderCursor);  // 行全体を選択
-                cursor.removeSelectedText();  // 行内容削除
-                cursor.deleteChar();          // 改行文字も削除（重要！）
+                cursor.select(QTextCursor::LineUnderCursor);
+                cursor.removeSelectedText();
+                cursor.deleteChar();
             }
             return;
         case Qt::Key_A: // 単語の左へ
@@ -183,14 +199,33 @@ void CustomTextEdit::keyPressEvent(QKeyEvent *event)
         case Qt::Key_F: // 単語の右へ
             moveCursor(QTextCursor::NextWord);
             return;
-        case Qt::Key_Q: // Ctrl+Q系コマンドの開始
+       case Qt::Key_Q: // Ctrl+Q系コマンドの開始
             waitingForCtrlQ = true;
             resetTimer->start();
+            {
+                MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+                if (mainWindow) {
+                    mainWindow->statusBar()->showMessage("Ctrl+Q pressed, waiting for second key...", 3000);
+                }
+            }
             return;
         case Qt::Key_K: // Ctrl+K系コマンドの開始
-            waitingForCtrlK = true;
-            resetTimer->start();
-            return;
+            {
+    qDebug() << "*** CTRL+K CASE REACHED ***";
+    qDebug() << "Before setting waitingForCtrlK";  // 🔧 追加
+    waitingForCtrlK = true;
+    waitingForCtrlQ = false;
+    resetTimer->start();
+    qDebug() << "After setting waitingForCtrlK to:" << waitingForCtrlK;  // 🔧 追加
+    
+    MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+    if (mainWindow) {
+        mainWindow->statusBar()->showMessage("Ctrl+K pressed, waiting for second key...", 3000);
+    }
+    qDebug() << "About to return from Ctrl+K case";  // 🔧 追加
+    return;
+
+}
         }
     }
     
@@ -202,9 +237,10 @@ void CustomTextEdit::handleCtrlQ(QKeyEvent *event)
 {
     resetTwoKeyMode();
     
-    if (event->modifiers() == Qt::ControlModifier) {
+    // 🔧 修正: Ctrl修飾子の有無に関わらず処理
+    if (event->modifiers() == Qt::ControlModifier || event->modifiers() == Qt::NoModifier) {
         switch (event->key()) {
-        case Qt::Key_F: // Ctrl+Q, F - 検索ダイアログ
+        case Qt::Key_F: // Ctrl+Q, F または Ctrl+Q, Ctrl+F - 検索ダイアログ
             {
                 MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
                 if (mainWindow) {
@@ -212,7 +248,7 @@ void CustomTextEdit::handleCtrlQ(QKeyEvent *event)
                 }
             }
             break;
-        case Qt::Key_A: // Ctrl+Q, A - 置換ダイアログ  
+        case Qt::Key_A: // Ctrl+Q, A または Ctrl+Q, Ctrl+A - 置換ダイアログ  
             {
                 MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
                 if (mainWindow) {
@@ -220,40 +256,48 @@ void CustomTextEdit::handleCtrlQ(QKeyEvent *event)
                 }
             }
             break;
-        case Qt::Key_R: // Ctrl+Q, R - ファイル先頭へ
-            moveCursor(QTextCursor::Start);
-            break;
-        case Qt::Key_C: // Ctrl+Q, C - ファイル末尾へ
-            moveCursor(QTextCursor::End);
-            break;
-        case Qt::Key_S: // Ctrl+Q, S - 行頭へ
-            moveCursor(QTextCursor::StartOfLine);
-            break;
-        case Qt::Key_D: // Ctrl+Q, D - 行末へ
-            moveCursor(QTextCursor::EndOfLine);
-            break;
-        case Qt::Key_E: // Ctrl+Q, E - 画面上端へ
+        case Qt::Key_R: // Ctrl+Q, R または Ctrl+Q, Ctrl+R - ファイル先頭へ
             {
                 QTextCursor cursor = textCursor();
-                QScrollBar *scrollBar = verticalScrollBar();
-                int topValue = scrollBar->value();
-                
-                // 画面の上端に表示されている位置を計算
-                QPoint topPoint(0, topValue);
-                QTextCursor topCursor = cursorForPosition(topPoint);
-                setTextCursor(topCursor);
+                cursor.movePosition(QTextCursor::Start);
+                setTextCursor(cursor);
+                ensureCursorVisible();
             }
             break;
-        case Qt::Key_X: // Ctrl+Q, X - 画面下端へ
+        case Qt::Key_C: // Ctrl+Q, C または Ctrl+Q, Ctrl+C - ファイル末尾へ
             {
                 QTextCursor cursor = textCursor();
-                QScrollBar *scrollBar = verticalScrollBar();
-                int bottomValue = scrollBar->value() + viewport()->height();
-                
-                // 画面の下端に表示されている位置を計算
-                QPoint bottomPoint(0, bottomValue);
-                QTextCursor bottomCursor = cursorForPosition(bottomPoint);
-                setTextCursor(bottomCursor);
+                cursor.movePosition(QTextCursor::End);
+                setTextCursor(cursor);
+                ensureCursorVisible();
+            }
+            break;
+        case Qt::Key_S: // Ctrl+Q, S または Ctrl+Q, Ctrl+S - 行頭へ
+            {
+                QTextCursor cursor = textCursor();
+                cursor.movePosition(QTextCursor::StartOfLine);
+                setTextCursor(cursor);
+            }
+            break;
+        case Qt::Key_D: // Ctrl+Q, D または Ctrl+Q, Ctrl+D - 行末へ
+            {
+                QTextCursor cursor = textCursor();
+                cursor.movePosition(QTextCursor::EndOfLine);
+                setTextCursor(cursor);
+            }
+            break;
+        case Qt::Key_E: // Ctrl+Q, E または Ctrl+Q, Ctrl+E - 画面上端へ
+            {
+                QTextCursor cursor = cursorForPosition(QPoint(0, 0));
+                setTextCursor(cursor);
+                ensureCursorVisible();
+            }
+            break;
+        case Qt::Key_X: // Ctrl+Q, X または Ctrl+Q, Ctrl+X - 画面下端へ
+            {
+                QTextCursor cursor = cursorForPosition(QPoint(0, viewport()->height()));
+                setTextCursor(cursor);
+                ensureCursorVisible();
             }
             break;
         }
@@ -264,31 +308,38 @@ void CustomTextEdit::handleCtrlK(QKeyEvent *event)
 {
     resetTwoKeyMode();
     
-    if (event->modifiers() == Qt::ControlModifier) {
+    // 🔧 修正: Ctrl修飾子の有無に関わらず処理
+    if (event->modifiers() == Qt::ControlModifier || event->modifiers() == Qt::NoModifier) {
         switch (event->key()) {
-        case Qt::Key_B: // Ctrl+K, B - 選択開始
+        case Qt::Key_B: // Ctrl+K, B または Ctrl+K, Ctrl+B - 選択開始
+            qDebug() << "Starting block selection at position:" << textCursor().position();
             blockStartCursor = textCursor();
             blockMode = true;
-            // 視覚的フィードバックのために再描画
             update();
             break;
             
-        case Qt::Key_K: // Ctrl+K, K - 選択終了＋コピー（テキストを残す）
+        case Qt::Key_K: // Ctrl+K, K または Ctrl+K, Ctrl+K - 選択終了＋コピー
+            qDebug() << "Processing Ctrl+K+K - Copy and end selection";
             if (blockMode) {
-                QTextCursor endCursor = textCursor();
+                QTextCursor currentCursor = textCursor();
+                
+                // 選択範囲を決定
+                int startPos = qMin(blockStartCursor.position(), currentCursor.position());
+                int endPos = qMax(blockStartCursor.position(), currentCursor.position());
+                
+                qDebug() << "Block selection from" << startPos << "to" << endPos;
+                
+                // 選択範囲のテキストを取得
                 QTextCursor selectionCursor = blockStartCursor;
-                
-                // 開始位置から終了位置まで選択
-                int startPos = qMin(blockStartCursor.position(), endCursor.position());
-                int endPos = qMax(blockStartCursor.position(), endCursor.position());
-                
                 selectionCursor.setPosition(startPos);
                 selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
-                setTextCursor(selectionCursor);
                 
-                // 選択されたテキストをクリップボード履歴に保存（コピーのみ、削除しない）
-                if (textCursor().hasSelection()) {
-                    QString selectedText = textCursor().selectedText();
+                QString selectedText = selectionCursor.selectedText();
+                qDebug() << "Selected text length:" << selectedText.length();
+                
+                if (!selectedText.isEmpty()) {
+                    // クリップボードにコピー
+                    QApplication::clipboard()->setText(selectedText);
                     
                     // クリップボード履歴に追加
                     clipboardHistory.prepend(selectedText);
@@ -297,96 +348,81 @@ void CustomTextEdit::handleCtrlK(QKeyEvent *event)
                     }
                     currentClipboardIndex = 0;
                     
-                    // システムクリップボードにもコピー（テキストは削除しない）
-                    QApplication::clipboard()->setText(selectedText);
-                    
-                    // 選択を解除（テキストは残す）
+                    qDebug() << "Text copied to clipboard:" << selectedText.left(50) + "...";
+                }
+                
+                // ブロックモード終了
+                blockMode = false;
+                
+                // 選択解除
+                QTextCursor cursor = textCursor();
+                cursor.clearSelection();
+                setTextCursor(cursor);
+                
+                // 画面更新
+                update();
+                
+                qDebug() << "Block mode ended, selection cleared";
+                
+                // ステータス表示
+                MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+                if (mainWindow) {
+                    mainWindow->statusBar()->showMessage("Block copied to clipboard", 2000);
+                }
+            } else {
+                qDebug() << "Ctrl+K+K pressed but not in block mode";
+                // ブロックモードでない場合の通常のコピー処理
+                if (textCursor().hasSelection()) {
+                    copy();
                     QTextCursor cursor = textCursor();
                     cursor.clearSelection();
                     setTextCursor(cursor);
                 }
-                blockMode = false;
-                update(); // 選択表示をクリア
             }
             break;
             
-        case Qt::Key_C: // Ctrl+K, C - ペースト（履歴はそのまま）
-            if (!clipboardHistory.isEmpty() && currentClipboardIndex < clipboardHistory.size()) {
-                // 現在のクリップボード項目をペースト（履歴インデックスは変更しない）
-                QTextCursor cursor = textCursor();
-                cursor.insertText(clipboardHistory[currentClipboardIndex]);
-                
-                // 🔧 修正: 貼り付け後は選択範囲をクリア
-                cursor.clearSelection();
-                setTextCursor(cursor);
-                
-                // ブロックモードも終了
-                if (blockMode) {
-                    blockMode = false;
-                    update();
-                }
-            } else {
-                // 履歴がない場合は通常のペースト
-                paste();
-                
-                // 🔧 修正: 通常のペースト後も選択をクリア
-                QTextCursor cursor = textCursor();
-                cursor.clearSelection();
-                setTextCursor(cursor);
-            }
-            break;
-            
-        case Qt::Key_V: // Ctrl+K, V - ペースト＆履歴を戻す
+        case Qt::Key_C: // Ctrl+K, C または Ctrl+K, Ctrl+C - ペースト
             if (!clipboardHistory.isEmpty()) {
-                // 現在のクリップボード項目をペースト
-                if (currentClipboardIndex < clipboardHistory.size()) {
-                    QTextCursor cursor = textCursor();
-                    cursor.insertText(clipboardHistory[currentClipboardIndex]);
-                    
-                    // 🔧 修正: 貼り付け後は選択範囲をクリア
-                    cursor.clearSelection();
-                    setTextCursor(cursor);
-                    
-                    // 次回は一つ前の履歴を使用
-                    currentClipboardIndex++;
-                    if (currentClipboardIndex >= clipboardHistory.size()) {
-                        currentClipboardIndex = 0; // 循環
-                    }
-                    
-                    // ブロックモードも終了
-                    if (blockMode) {
-                        blockMode = false;
-                        update();
-                    }
-                }
+                QString textToPaste = clipboardHistory.at(currentClipboardIndex);
+                insertPlainText(textToPaste);
+                qDebug() << "Pasted from history index:" << currentClipboardIndex;
             } else {
-                // 履歴がない場合は通常のペースト
                 paste();
-                
-                // 🔧 修正: 通常のペースト後も選択をクリア
-                QTextCursor cursor = textCursor();
-                cursor.clearSelection();
-                setTextCursor(cursor);
             }
             break;
             
-        case Qt::Key_Y: // Ctrl+K, Y - 選択部分をカット（削除）または1行削除
+        case Qt::Key_V: // Ctrl+K, V または Ctrl+K, Ctrl+V - ペースト＆履歴を戻す
+            if (!clipboardHistory.isEmpty()) {
+                QString textToPaste = clipboardHistory.at(currentClipboardIndex);
+                insertPlainText(textToPaste);
+                
+                // 履歴インデックスを進める
+                currentClipboardIndex = (currentClipboardIndex + 1) % clipboardHistory.size();
+                qDebug() << "Pasted and moved to history index:" << currentClipboardIndex;
+            } else {
+                paste();
+            }
+            break;
+            
+        case Qt::Key_Y: // Ctrl+K, Y または Ctrl+K, Ctrl+Y - 選択部分をカット
+            qDebug() << "Processing Ctrl+K+Y - Cut and end selection";
             if (blockMode) {
-                // ブロックモード中の場合：選択部分をカット
-                QTextCursor endCursor = textCursor();
+                QTextCursor currentCursor = textCursor();
+                
+                // 選択範囲を決定
+                int startPos = qMin(blockStartCursor.position(), currentCursor.position());
+                int endPos = qMax(blockStartCursor.position(), currentCursor.position());
+                
+                // 選択範囲のテキストを取得してカット
                 QTextCursor selectionCursor = blockStartCursor;
-                
-                // 開始位置から終了位置まで選択
-                int startPos = qMin(blockStartCursor.position(), endCursor.position());
-                int endPos = qMax(blockStartCursor.position(), endCursor.position());
-                
                 selectionCursor.setPosition(startPos);
                 selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
-                setTextCursor(selectionCursor);
                 
-                // 選択されたテキストをクリップボード履歴に保存してカット
-                if (textCursor().hasSelection()) {
-                    QString selectedText = textCursor().selectedText();
+                QString selectedText = selectionCursor.selectedText();
+                
+                if (!selectedText.isEmpty()) {
+                    // クリップボードにコピー
+                    QApplication::clipboard()->setText(selectedText);
                     
                     // クリップボード履歴に追加
                     clipboardHistory.prepend(selectedText);
@@ -395,35 +431,31 @@ void CustomTextEdit::handleCtrlK(QKeyEvent *event)
                     }
                     currentClipboardIndex = 0;
                     
-                    // テキストを削除（カット）
-                    textCursor().removeSelectedText();
+                    // テキストを削除
+                    selectionCursor.removeSelectedText();
                     
-                    // システムクリップボードにもコピー
-                    QApplication::clipboard()->setText(selectedText);
+                    qDebug() << "Text cut to clipboard:" << selectedText.left(50) + "...";
                 }
+                
+                // ブロックモード終了
                 blockMode = false;
-                update(); // 選択表示をクリア
-            } else {
-                // ブロックモードでない場合：現在行を削除（元の動作を維持）
-                QTextCursor cursor = textCursor();
-                cursor.select(QTextCursor::LineUnderCursor);
-                QString deletedLine = cursor.selectedText();
+                update();
                 
-                // 削除した行をクリップボード履歴に追加
-                clipboardHistory.prepend(deletedLine);
-                if (clipboardHistory.size() > 10) {
-                    clipboardHistory.removeLast();
+                // ステータス表示
+                MainWindow *mainWindow = qobject_cast<MainWindow*>(window());
+                if (mainWindow) {
+                    mainWindow->statusBar()->showMessage("Block cut to clipboard", 2000);
                 }
-                currentClipboardIndex = 0;
-                
-                cursor.removeSelectedText();
-                cursor.deleteChar(); // 改行文字も削除
+            } else {
+                // ブロックモードでない場合の通常のカット処理
+                if (textCursor().hasSelection()) {
+                    cut();
+                }
             }
             break;
         }
     }
 }
-
 void CustomTextEdit::resetTwoKeyMode()
 {
     waitingForCtrlQ = false;
@@ -435,11 +467,9 @@ void CustomTextEdit::paintEvent(QPaintEvent *event)
 {
     QTextEdit::paintEvent(event);
     
-    // ブロックモード中の視覚的フィードバック
     if (blockMode) {
         QPainter painter(viewport());
         
-        // 選択範囲をハイライト
         QTextCursor currentCursor = textCursor();
         QTextCursor selectionCursor = blockStartCursor;
         
@@ -450,7 +480,6 @@ void CustomTextEdit::paintEvent(QPaintEvent *event)
         selectionCursor.setPosition(endPos, QTextCursor::KeepAnchor);
         
         if (selectionCursor.hasSelection()) {
-            // 選択範囲の背景を青色でハイライト
             QList<QTextEdit::ExtraSelection> extraSelections;
             QTextEdit::ExtraSelection selection;
             
@@ -462,16 +491,13 @@ void CustomTextEdit::paintEvent(QPaintEvent *event)
             setExtraSelections(extraSelections);
         }
         
-        // 選択開始位置にマーカーを描画
         painter.setPen(QPen(Qt::blue, 2, Qt::DashLine));
         QRect startRect = cursorRect(blockStartCursor);
         painter.drawRect(startRect.x() - 2, startRect.y(), 4, startRect.height());
         
-        // 🔧 新規追加: ESCキャンセルのヒント表示
         painter.setPen(QPen(Qt::blue, 1));
         painter.drawText(10, 20, "Block Mode - ESC to cancel, Ctrl+K,K to copy, Ctrl+K,Y to cut");
     } else {
-        // ブロックモードでない場合は、ハイライトをクリア
         setExtraSelections(QList<QTextEdit::ExtraSelection>());
     }
 }
@@ -479,8 +505,7 @@ void CustomTextEdit::paintEvent(QPaintEvent *event)
 void CustomTextEdit::updateBlockSelection()
 {
     if (blockMode) {
-        // 選択表示はpaintEventで行い、ここではカーソル位置だけ更新
-        update(); // 再描画をトリガー
+        update();
     }
 }
 
@@ -495,10 +520,10 @@ MainWindow::MainWindow(QWidget *parent)
     , textEditor(new CustomTextEdit(this))
     , settings(new QSettings(this))
     , findDialog(nullptr)
-    , toolBarVisible(true)           
-    , statusExtrasVisible(true)      
-    , lastCaseSensitive(false)       // 🔧 追加
-    , lastWholeWord(false)           // 🔧 追加
+    , toolBarVisible(true)
+    , statusExtrasVisible(true)
+    , lastCaseSensitive(false)
+    , lastWholeWord(false)
 {
     setCentralWidget(textEditor);
     
@@ -522,7 +547,7 @@ MainWindow::MainWindow(QWidget *parent)
             cutAction, &QAction::setEnabled);
     
     setCurrentFile("");
-    setWindowTitle("WordStar Editor");
+    setWindowTitle("WLEditor");
     resize(800, 600);
     
     updateStatusBar();
@@ -539,7 +564,6 @@ void MainWindow::setupMenus()
     QMenu *fileMenu = menuBar()->addMenu("&File");
     
     newAction = new QAction("&New", this);
-    // WordStarキーバインドを優先するため、標準ショートカットを削除
     newAction->setStatusTip("Create a new file");
     connect(newAction, &QAction::triggered, this, &MainWindow::newFile);
     fileMenu->addAction(newAction);
@@ -549,8 +573,13 @@ void MainWindow::setupMenus()
     connect(openAction, &QAction::triggered, this, &MainWindow::openFile);
     fileMenu->addAction(openAction);
     
+    openInNewWindowAction = new QAction("Open in &New Window", this);
+    openInNewWindowAction->setShortcut(QKeySequence("Ctrl+Shift+O"));
+    openInNewWindowAction->setStatusTip("Open file in new window");
+    connect(openInNewWindowAction, &QAction::triggered, this, &MainWindow::openInNewWindow);
+    fileMenu->addAction(openInNewWindowAction);
+    
     saveAction = new QAction("&Save", this);
-    // Ctrl+S をWordStarの左移動に使うため、ショートカットを削除
     saveAction->setStatusTip("Save the current file");
     connect(saveAction, &QAction::triggered, this, &MainWindow::saveFile);
     fileMenu->addAction(saveAction);
@@ -563,8 +592,7 @@ void MainWindow::setupMenus()
     fileMenu->addSeparator();
     
     exitAction = new QAction("E&xit", this);
-    // Ctrl+QをWordStarの拡張移動に使うため、終了ショートカットを無効化
-    exitAction->setShortcut(QKeySequence("Alt+F4")); // 代替ショートカット
+    exitAction->setShortcut(QKeySequence("Alt+F4"));
     exitAction->setStatusTip("Exit the application");
     connect(exitAction, &QAction::triggered, this, &QWidget::close);
     fileMenu->addAction(exitAction);
@@ -573,7 +601,6 @@ void MainWindow::setupMenus()
     QMenu *editMenu = menuBar()->addMenu("&Edit");
     
     undoAction = new QAction("&Undo", this);
-    // WordStarキーバインドを優先するため、標準ショートカットを削除
     undoAction->setStatusTip("Undo the last action");
     undoAction->setEnabled(false);
     connect(undoAction, &QAction::triggered, this, &MainWindow::undo);
@@ -588,14 +615,12 @@ void MainWindow::setupMenus()
     editMenu->addSeparator();
     
     cutAction = new QAction("Cu&t", this);
-    // WordStarキーバインドを優先するため、標準ショートカットを削除
     cutAction->setStatusTip("Cut the selected text");
     cutAction->setEnabled(false);
     connect(cutAction, &QAction::triggered, this, &MainWindow::cut);
     editMenu->addAction(cutAction);
     
     copyAction = new QAction("&Copy", this);
-    // WordStarキーバインドを優先するため、標準ショートカットを削除
     copyAction->setStatusTip("Copy the selected text");
     copyAction->setEnabled(false);
     connect(copyAction, &QAction::triggered, this, &MainWindow::copy);
@@ -609,39 +634,33 @@ void MainWindow::setupMenus()
     editMenu->addSeparator();
     
     selectAllAction = new QAction("Select &All", this);
-    // WordStarキーバインドを優先するため、標準ショートカットを削除
     selectAllAction->setStatusTip("Select all text");
     connect(selectAllAction, &QAction::triggered, this, &MainWindow::selectAll);
     editMenu->addAction(selectAllAction);
     
     editMenu->addSeparator();
     
-    // ========== 🔧 検索・置換メニュー項目を追加 ==========
-    
     // WordStar風検索
     QAction *wordstarFindAction = new QAction("&Find (WordStar)...", this);
-    wordstarFindAction->setShortcut(QKeySequence("Ctrl+Q,F"));  // 表示用
+    //wordstarFindAction->setShortcut(QKeySequence("Ctrl+Q,F"));
     wordstarFindAction->setStatusTip("WordStar style search (Ctrl+Q, F)");
     connect(wordstarFindAction, &QAction::triggered, this, &MainWindow::wordstarFind);
     editMenu->addAction(wordstarFindAction);
     
-    // Find Next
     QAction *findNextAction = new QAction("Find &Next", this);
     findNextAction->setShortcut(QKeySequence("Ctrl+L"));
     findNextAction->setStatusTip("Repeat last search (Ctrl+L)");
     connect(findNextAction, &QAction::triggered, this, &MainWindow::wordstarFindNext);
     editMenu->addAction(findNextAction);
     
-    // WordStar風置換
     QAction *wordstarReplaceAction = new QAction("&Replace (WordStar)...", this);
-    wordstarReplaceAction->setShortcut(QKeySequence("Ctrl+Q,A"));  // 表示用
+    //wordstarReplaceAction->setShortcut(QKeySequence("Ctrl+Q,A"));
     wordstarReplaceAction->setStatusTip("WordStar style replace (Ctrl+Q, A)");
     connect(wordstarReplaceAction, &QAction::triggered, this, &MainWindow::wordstarReplace);
     editMenu->addAction(wordstarReplaceAction);
     
     editMenu->addSeparator();
     
-    // 既存の高機能検索・置換
     findReplaceAction = new QAction("Find/Replace (&Advanced)...", this);
     findReplaceAction->setShortcut(QKeySequence(Qt::Key_F3));
     findReplaceAction->setStatusTip("Advanced find and replace dialog (F3)");
@@ -663,7 +682,6 @@ void MainWindow::setupMenus()
     
     viewMenu->addSeparator();
     
-    // 新しく追加：UI要素の表示/非表示
     toggleToolBarAction = new QAction("&Tool Bar", this);
     toggleToolBarAction->setCheckable(true);
     toggleToolBarAction->setChecked(true);
@@ -680,14 +698,14 @@ void MainWindow::setupMenus()
     
     viewMenu->addSeparator();
     
-    // 設定メニュー
     preferencesAction = new QAction("&Preferences...", this);
     preferencesAction->setStatusTip("Configure application settings");
     connect(preferencesAction, &QAction::triggered, this, &MainWindow::showPreferences);
     viewMenu->addAction(preferencesAction);
+
 }
 
-void MainWindow::setupToolBar()
+void MainWindow::setupToolBar()    // 🔧 強制的にCtrl+Q系を処理するアクション
 {
     mainToolBar = addToolBar("Main");
     mainToolBar->addAction(newAction);
@@ -703,7 +721,6 @@ void MainWindow::setupToolBar()
     mainToolBar->addSeparator();
     mainToolBar->addAction(findReplaceAction);
     
-    // オブジェクト名を設定（設定保存用）
     mainToolBar->setObjectName("MainToolBar");
 }
 
@@ -712,15 +729,13 @@ void MainWindow::setupStatusBar()
     statusLabel = new QLabel("Ready - WordStar like Keys Enabled");
     statusBar()->addWidget(statusLabel);
     
-    // ステータスバーの詳細情報をまとめるウィジェット
     statusExtrasWidget = new QWidget();
     QHBoxLayout *extrasLayout = new QHBoxLayout(statusExtrasWidget);
     extrasLayout->setContentsMargins(0, 0, 0, 0);
     
-    // 折り返し幅設定
     extrasLayout->addWidget(new QLabel("Wrap:"));
     wrapWidthSpinBox = new QSpinBox();
-    wrapWidthSpinBox->setRange(0, 500);  // 🔧 修正: 0-500文字に拡張
+    wrapWidthSpinBox->setRange(0, 500);
     wrapWidthSpinBox->setValue(80);
     wrapWidthSpinBox->setSpecialValueText("No wrap");
     wrapWidthSpinBox->setSuffix(" chars");
@@ -729,7 +744,6 @@ void MainWindow::setupStatusBar()
             this, &MainWindow::onWrapWidthChanged);
     extrasLayout->addWidget(wrapWidthSpinBox);
     
-    // フォント設定
     extrasLayout->addWidget(new QLabel("Font:"));
     fontComboBox = new QFontComboBox();
     fontComboBox->setMaximumWidth(150);
@@ -787,7 +801,12 @@ void MainWindow::openFile()
 {
     if (maybeSave()) {
         QString fileName = QFileDialog::getOpenFileName(this, 
-            "Open File", "", "Text Files (*.txt);;All Files (*)");
+            "Open File", "", 
+            "Text Files (*.txt *.cpp *.h *.py *.java *.js *.html *.css *.md *.xml *.json);;"
+            "C++ Files (*.cpp *.cxx *.cc *.c *.h *.hpp *.hxx);;"
+            "Python Files (*.py *.pyw);;"
+            "Web Files (*.html *.htm *.css *.js *.json *.xml);;"
+            "All Files (*)");
         if (!fileName.isEmpty()) {
             QFile file(fileName);
             if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -796,12 +815,44 @@ void MainWindow::openFile()
                 setCurrentFile(fileName);
                 statusLabel->setText("File opened: " + QFileInfo(fileName).fileName() + " - WordStar Keys Enabled");
             } else {
-                QMessageBox::warning(this, "WordStar Editor",
+                QMessageBox::warning(this, "WLEditor",
                     QString("Cannot read file %1:\n%2.")
                     .arg(fileName).arg(file.errorString()));
             }
         }
     }
+}
+
+void MainWindow::openInNewWindow()
+{
+    QString fileName = QFileDialog::getOpenFileName(this, 
+        "Open File in New Window", "", 
+        "Text Files (*.txt *.cpp *.h *.py *.java *.js *.html *.css *.md *.xml *.json);;"
+        "C++ Files (*.cpp *.cxx *.cc *.c *.h *.hpp *.hxx);;"
+        "Python Files (*.py *.pyw);;"
+        "Web Files (*.html *.htm *.css *.js *.json *.xml);;"
+        "All Files (*)");
+    if (!fileName.isEmpty()) {
+        QProcess::startDetached(QApplication::applicationFilePath(), 
+                              QStringList() << fileName);
+    }
+}
+
+void MainWindow::openFileFromArgs(const QString &fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::warning(this, "WLEditor", 
+                           QString("Cannot read file %1:\n%2")
+                           .arg(fileName)
+                           .arg(file.errorString()));
+        return;
+    }
+    
+    QTextStream in(&file);
+    textEditor->setPlainText(in.readAll());
+    setCurrentFile(fileName);
+    statusLabel->setText("File opened: " + QFileInfo(fileName).fileName() + " - WordStar Keys Enabled");
 }
 
 void MainWindow::saveFile()
@@ -818,7 +869,7 @@ void MainWindow::saveFile()
         textEditor->document()->setModified(false);
         statusLabel->setText("File saved: " + QFileInfo(currentFile).fileName() + " - WordStar Keys Enabled");
     } else {
-        QMessageBox::warning(this, "WordStar Editor",
+        QMessageBox::warning(this, "WLEditor",
             QString("Cannot write file %1:\n%2.")
             .arg(currentFile).arg(file.errorString()));
     }
@@ -881,10 +932,8 @@ void MainWindow::findReplace()
     findDialog->activateWindow();
 }
 
-// 🔧 新規追加: WordStar検索メソッド
 void MainWindow::wordstarFind()
 {
-    // 検索専用の簡単なダイアログ
     QDialog *findDialog = new QDialog(this);
     findDialog->setWindowTitle("WordStar Search");
     findDialog->setModal(true);
@@ -892,7 +941,6 @@ void MainWindow::wordstarFind()
     
     QVBoxLayout *layout = new QVBoxLayout(findDialog);
     
-    // 検索テキスト入力
     QHBoxLayout *searchLayout = new QHBoxLayout();
     searchLayout->addWidget(new QLabel("Find:"));
     QLineEdit *searchEdit = new QLineEdit(lastSearchText);
@@ -900,7 +948,6 @@ void MainWindow::wordstarFind()
     searchLayout->addWidget(searchEdit);
     layout->addLayout(searchLayout);
     
-    // オプション
     QHBoxLayout *optionLayout = new QHBoxLayout();
     QCheckBox *caseSensitive = new QCheckBox("Case sensitive");
     caseSensitive->setChecked(lastCaseSensitive);
@@ -910,7 +957,6 @@ void MainWindow::wordstarFind()
     optionLayout->addWidget(wholeWord);
     layout->addLayout(optionLayout);
     
-    // ボタン
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     QPushButton *findButton = new QPushButton("Find Next");
     QPushButton *cancelButton = new QPushButton("Cancel");
@@ -921,7 +967,6 @@ void MainWindow::wordstarFind()
     buttonLayout->addWidget(cancelButton);
     layout->addLayout(buttonLayout);
     
-    // シグナル接続
     connect(findButton, &QPushButton::clicked, [=]() {
         QString searchText = searchEdit->text();
         if (!searchText.isEmpty()) {
@@ -937,22 +982,18 @@ void MainWindow::wordstarFind()
     connect(cancelButton, &QPushButton::clicked, findDialog, &QDialog::reject);
     connect(searchEdit, &QLineEdit::returnPressed, findButton, &QPushButton::click);
     
-    // フォーカス設定
     searchEdit->setFocus();
-    
     findDialog->exec();
     delete findDialog;
 }
 
 void MainWindow::wordstarReplace()
 {
-    // 既存の高機能な検索・置換ダイアログを開く
     if (!findDialog) {
         findDialog = new FindReplaceDialog(this);
         findDialog->setTextEdit(textEditor);
     }
     
-    // 最後の検索テキストを設定
     if (!lastSearchText.isEmpty()) {
         findDialog->setSearchText(lastSearchText);
     }
@@ -965,10 +1006,8 @@ void MainWindow::wordstarReplace()
 void MainWindow::wordstarFindNext()
 {
     if (lastSearchText.isEmpty()) {
-        // 検索テキストがない場合は検索ダイアログを開く
         wordstarFind();
     } else {
-        // 最後の検索を繰り返し
         performWordStarSearch();
     }
 }
@@ -991,7 +1030,6 @@ void MainWindow::performWordStarSearch()
     if (found) {
         statusLabel->setText(QString("Found: \"%1\" - WordStar Keys Enabled").arg(lastSearchText));
     } else {
-        // 検索が失敗した場合、文書の最初から再検索
         QTextCursor cursor = textEditor->textCursor();
         cursor.movePosition(QTextCursor::Start);
         textEditor->setTextCursor(cursor);
@@ -1021,7 +1059,7 @@ void MainWindow::setWrapWidth()
 {
     bool ok;
     int width = QInputDialog::getInt(this, "Wrap Width",
-        "Characters per line (0=no wrap):", wrapWidthSpinBox->value(), 0, 500, 1, &ok);  // 🔧 修正: 最大500に変更
+        "Characters per line (0=no wrap):", wrapWidthSpinBox->value(), 0, 500, 1, &ok);
     if (ok) {
         wrapWidthSpinBox->setValue(width);
         textEditor->setWrapWidth(width);
@@ -1050,7 +1088,7 @@ bool MainWindow::maybeSave()
 {
     if (textEditor->document()->isModified()) {
         QMessageBox::StandardButton ret = QMessageBox::warning(this,
-            "WordStar Editor",
+            "WLEditor",
             "The document has been modified.\n"
             "Do you want to save your changes?",
             QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel);
@@ -1073,20 +1111,16 @@ void MainWindow::setCurrentFile(const QString &fileName)
     
     QString shownName = currentFile.isEmpty() ? "untitled.txt" : 
                        QFileInfo(currentFile).fileName();
-    setWindowTitle(QString("%1[*] - WordStar Editor").arg(shownName));
+    setWindowTitle(QString("%1[*] - WLEditor").arg(shownName));
 }
 
 void MainWindow::loadSettings()
 {
-    // ウィンドウの位置とサイズを復元
     restoreGeometry(settings->value("geometry").toByteArray());
     
-    // フォント設定を復元（デフォルトをNoto Sans Mono CJK JPに変更）
     QFont defaultFont("Noto Sans Mono CJK JP", 12);
     
-    // フォントが利用できない場合の代替フォント
     if (!QFontDatabase().families().contains("Noto Sans Mono CJK JP")) {
-        // 代替候補を順に試す
         QStringList fallbackFonts = {
             "Noto Sans Mono",
             "DejaVu Sans Mono", 
@@ -1109,12 +1143,10 @@ void MainWindow::loadSettings()
     fontComboBox->setCurrentFont(font);
     fontSizeSpinBox->setValue(font.pointSize());
     
-    // 折り返し幅を復元
     int wrapWidth = settings->value("wrapWidth", 80).toInt();
     wrapWidthSpinBox->setValue(wrapWidth);
     textEditor->setWrapWidth(wrapWidth);
     
-    // UI表示設定を復元
     toolBarVisible = settings->value("toolBarVisible", true).toBool();
     statusExtrasVisible = settings->value("statusExtrasVisible", true).toBool();
     
@@ -1144,14 +1176,11 @@ void MainWindow::closeEvent(QCloseEvent *event)
     }
 }
 
-// 新しく追加するスロット関数
 void MainWindow::toggleToolBar()
 {
     toolBarVisible = !toolBarVisible;
     mainToolBar->setVisible(toolBarVisible);
     toggleToolBarAction->setChecked(toolBarVisible);
-    
-    // 設定を保存
     settings->setValue("toolBarVisible", toolBarVisible);
 }
 
@@ -1160,14 +1189,11 @@ void MainWindow::toggleStatusBarExtras()
     statusExtrasVisible = !statusExtrasVisible;
     statusExtrasWidget->setVisible(statusExtrasVisible);
     toggleStatusExtrasAction->setChecked(statusExtrasVisible);
-    
-    // 設定を保存
     settings->setValue("statusExtrasVisible", statusExtrasVisible);
 }
 
 void MainWindow::showPreferences()
 {
-    // 簡単な設定ダイアログ
     QDialog *prefDialog = new QDialog(this);
     prefDialog->setWindowTitle("Preferences");
     prefDialog->setModal(true);
@@ -1175,7 +1201,6 @@ void MainWindow::showPreferences()
     
     QVBoxLayout *layout = new QVBoxLayout(prefDialog);
     
-    // UI表示設定グループ
     QGroupBox *uiGroup = new QGroupBox("Interface", prefDialog);
     QVBoxLayout *uiLayout = new QVBoxLayout(uiGroup);
     
@@ -1201,7 +1226,6 @@ void MainWindow::showPreferences()
     
     layout->addWidget(uiGroup);
     
-    // ボタン
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     QPushButton *okButton = new QPushButton("OK", prefDialog);
     QPushButton *cancelButton = new QPushButton("Cancel", prefDialog);
@@ -1228,7 +1252,6 @@ FindReplaceDialog::FindReplaceDialog(QWidget *parent)
     setModal(false);
     resize(400, 200);
     
-    // UI要素作成
     findLineEdit = new QLineEdit();
     findLineEdit->setPlaceholderText("Find what...");
     
@@ -1244,7 +1267,6 @@ FindReplaceDialog::FindReplaceDialog(QWidget *parent)
     caseSensitiveCheckBox = new QCheckBox("&Case sensitive");
     wholeWordCheckBox = new QCheckBox("&Whole word");
     
-    // レイアウト
     QGridLayout *layout = new QGridLayout(this);
     layout->addWidget(new QLabel("Find:"), 0, 0);
     layout->addWidget(findLineEdit, 0, 1, 1, 2);
@@ -1260,7 +1282,6 @@ FindReplaceDialog::FindReplaceDialog(QWidget *parent)
     layout->addWidget(replaceAllButton, 4, 0);
     layout->addWidget(closeButton, 4, 2);
     
-    // シグナル接続
     connect(findNextButton, &QPushButton::clicked, this, &FindReplaceDialog::findNext);
     connect(findPrevButton, &QPushButton::clicked, this, &FindReplaceDialog::findPrevious);
     connect(replaceButton, &QPushButton::clicked, this, &FindReplaceDialog::replace);
@@ -1275,7 +1296,6 @@ void FindReplaceDialog::setTextEdit(QTextEdit *editor)
     textEditor = editor;
 }
 
-// 🔧 新規追加: テキスト設定メソッド
 void FindReplaceDialog::setSearchText(const QString &text)
 {
     findLineEdit->setText(text);
@@ -1298,7 +1318,6 @@ void FindReplaceDialog::findNext()
     if (wholeWordCheckBox->isChecked())
         flags |= QTextDocument::FindWholeWords;
     
-    // QTextEditのfindメソッドを使用
     bool found = textEditor->find(searchText, flags);
     
     if (!found) {
